@@ -1,0 +1,116 @@
+[build-system]
+requires = ["setuptools>=68", "setuptools-scm>=8"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "boldcast"
+version = "0.1.0"
+description = "Atlas-free, surface-based hybrid-Mamba foundation model for joint stimulus–brain latent state tracking from naturalistic fMRI"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+authors = [{ name = "Yibei" }]
+keywords = ["fMRI", "Mamba", "neuroimaging", "CIFTI", "foundation model", "brain decoding"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Medical Science Apps.",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: MIT License",
+]
+
+dependencies = [
+    # Deep learning
+    "torch>=2.1",
+    "torchvision>=0.16",
+    # Mamba SSM (install from source: pip install mamba-ssm)
+    "mamba-ssm>=1.2.0",
+    "causal-conv1d>=1.1.0",
+    # Neuroimaging I/O
+    "nibabel>=5.0",
+    "nilearn>=0.10",
+    # Geodesic surface partitioning (choose one; trimesh is broader)
+    "trimesh>=4.0",
+    "pygeodesic>=0.1.7",
+    # Stimulus embeddings
+    "transformers>=4.40",
+    "open-clip-torch>=2.24",
+    # Experiment tracking and config
+    "wandb>=0.16",
+    "hydra-core>=1.3",
+    "omegaconf>=2.3",
+    # Scientific Python stack
+    "numpy>=1.26",
+    "scipy>=1.12",
+    "scikit-learn>=1.4",
+    "pandas>=2.2",
+    # Visualization
+    "matplotlib>=3.8",
+    "seaborn>=0.13",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "ruff>=0.4",
+    "black>=24.0",
+    "mypy>=1.9",
+    "pre-commit>=3.7",
+]
+notebooks = [
+    "jupyter>=1.0",
+    "ipywidgets>=8.0",
+    "plotly>=5.20",
+    "surfplot>=0.2",        # cortical surface plotting
+]
+docs = [
+    "sphinx>=7.0",
+    "sphinx-rtd-theme>=2.0",
+    "myst-parser>=3.0",
+]
+
+[project.scripts]
+boldcast-train    = "boldcast.scripts.train:main"
+boldcast-evaluate = "boldcast.scripts.evaluate:main"
+
+[project.urls]
+Repository = "https://github.com/yibei/boldcast"
+"Bug Tracker" = "https://github.com/yibei/boldcast/issues"
+
+# ---------------------------------------------------------------------------
+# Tool configurations
+# ---------------------------------------------------------------------------
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+src = ["src", "tests", "scripts", "benchmarks"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "ANN", "NPY"]
+ignore = ["ANN101", "ANN102"]
+
+[tool.black]
+line-length = 100
+target-version = ["py310", "py311", "py312"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v --cov=boldcast --cov-report=term-missing"
+
+[tool.coverage.run]
+source = ["src/boldcast"]
+omit = ["tests/*", "benchmarks/*", "scripts/*"]
