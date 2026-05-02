@@ -2,7 +2,7 @@
 GPU memory estimation for BOLDcast model configurations.
 
 Estimates activation memory, parameter memory, and optimizer state memory
-for different architecture configurations and hardware targets (H200, A100, B200).
+for different architecture configurations and hardware targets (H200, B200).
 
 Usage:
     python benchmarks/estimate_memory.py
@@ -10,11 +10,21 @@ Usage:
     python benchmarks/estimate_memory.py --output "$SCRATCH/output/memory_estimates.json"
 """
 
+import os
 import argparse
 import json
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
+from dotenv import load_dotenv
 
+load_dotenv(override=True)
+_scratch_dir = os.getenv("SCRATCH_DIR")
+if not _scratch_dir or not Path(_scratch_dir).is_absolute():
+    raise RuntimeError(
+        f"SCRATCH_DIR must be set to an absolute path (got {_scratch_dir!r}). "
+        "Check .env or the shell environment."
+    )
+output_dir = Path(_scratch_dir) / "output/benchmarks/"
 
 @dataclass
 class ModelConfig:
@@ -39,8 +49,8 @@ class HardwareConfig:
 
 
 # Hardware targets
+# H100 = HardwareConfig(name="H100", memory_gb=141.0, fp8_support=False)
 H200 = HardwareConfig(name="H200", memory_gb=141.0, fp8_support=False)
-A100_80 = HardwareConfig(name="A100-80GB", memory_gb=80.0, fp8_support=False)
 B200 = HardwareConfig(name="B200", memory_gb=192.0, fp8_support=True)
 
 
@@ -184,7 +194,7 @@ def estimate_memory(
             gradient checkpointing (typically 0.4-0.5 for sqrt(n) checkpointing)
     """
     if hardware_targets is None:
-        hardware_targets = [H200, A100_80, B200]
+        hardware_targets = [H200, B200]
 
     est = MemoryEstimate(config_name=f"T{cfg.seq_len}_P{cfg.n_spatial_tokens}_d{cfg.hidden_dim}")
 
@@ -299,6 +309,12 @@ def main():
             with open(args.output, "w") as f:
                 json.dump(results, f, indent=2)
             print(f"Results saved to {args.output}")
+        else:
+            output_path = Path(output_dir / "memory_estimates.json")
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(output_path, "w") as f:
+                json.dump(results, f, indent=2)
+            print(f"Results saved to {output_path}")
     else:
         cfg = ModelConfig(
             seq_len=args.seq_len,
@@ -316,6 +332,12 @@ def main():
             with open(args.output, "w") as f:
                 json.dump(asdict(est), f, indent=2)
             print(f"Results saved to {args.output}")
+        else:
+            output_path = Path(output_dir / "memory_estimates.json")
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(output_path, "w") as f:
+                json.dump(asdict(est), f, indent=2)
+            print(f"Results saved to {output_path}")
 
 
 if __name__ == "__main__":
