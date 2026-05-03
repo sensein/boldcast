@@ -41,13 +41,18 @@ window:
   stride: 128
 
 # Training -------------------------------------------------------------------
+# 3000 steps ≈ 42 epochs over 16 train subjects (576 windows / batch 8 ≈ 72
+# steps/epoch). High epoch count is acceptable with regularization below.
 train:
   batch_size_per_gpu: 4
   grad_accum_steps: 1
   max_steps: 3000
   lr: 3.0e-4
-  weight_decay: 0.01
-  warmup_steps: 0
+  weight_decay: 0.05
+  beta1: 0.9
+  beta2: 0.95
+  warmup_steps: 100
+  grad_clip_norm: 1.0
   schedule: cosine
   precision: bf16
   forecasting_horizons: [1, 5]

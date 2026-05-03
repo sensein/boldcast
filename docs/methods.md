@@ -48,13 +48,17 @@ grayordinate input; no ROI averaging is applied.
 Each TR is represented as a fixed set of `P = 1,792` spatial tokens drawn from
 the HCP CIFTI grayordinate space [Glasser et al. 2013]: `1,024` cortical
 patches plus `768` subcortical/cerebellar clusters. Cortical patches are
-obtained once via geodesic farthest-point sampling on the `32k_fs_LR` mesh,
-yielding patches of approximately 30 vertices each that respect the
-non-Euclidean geometry of the cortical sheet. Subcortical and cerebellar
-grayordinates are partitioned by k-means in MNI coordinates (`k = 768`).
-Per-token features are mean BOLD per patch per TR (scalar) after run-wise
-standardization. Round-trip decoding from patches to grayordinates is verified
-to numerical precision on all training subjects.
+obtained once via geodesic farthest-point sampling, run independently per
+hemisphere on the `32k_fs_LR` mesh (`512` patches per hemisphere; geodesic
+distance does not span the corpus callosum, and per-hemisphere FPS yields a
+balanced split). Each patch covers ≈ 58 vertices on average (29,696 +
+29,716 = 59,412 cortical grayordinates after medial-wall exclusion, divided
+across 1,024 patches), preserving the non-Euclidean geometry of the cortical
+sheet. Subcortical and cerebellar grayordinates are partitioned by k-means
+in MNI coordinates (`k = 768`). Per-token features are mean BOLD per patch
+per TR (scalar) after run-wise standardization. Round-trip decoding from
+patches to grayordinates is verified to numerical precision on all training
+subjects.
 
 This design contrasts with parcellation-based tokenization
 [e.g., Schaefer-400, Schaefer et al. 2018], which discards within-parcel
@@ -66,13 +70,18 @@ functional connectivity research.
 ## Spatial Mixing and Subject Conditioning
 
 Tokens interact spatially via local kNN attention with `k = 8` over precomputed
-cortical adjacency, interleaved between Mamba blocks. This yields an explicit,
-neuroanatomically grounded inductive bias and avoids the `O(P²)` cost of dense
-attention over `P = 1,792` tokens. Hybrid SSM+attention designs
-[Jamba, Lieber et al. 2024; Hymba] have established that interleaving local
+cortical adjacency (patch-centroid Euclidean distance on the surface).
+Interleaving is **1:1**: every Mamba block is followed by one kNN attention
+block, so the default 6-layer config has 6 Mamba + 6 kNN blocks. This yields
+an explicit, neuroanatomically grounded inductive bias and avoids the `O(P²)`
+cost of dense attention over `P = 1,792` tokens. Hybrid SSM+attention designs
+[Jamba, Lieber et al. 2024; Hymba] have established that interleaving
 attention with state-space layers improves long-context modeling; our spatial
-kNN attention serves the analogous role of providing global spatial mixing while
-Mamba handles temporal evolution.
+kNN attention serves the analogous role of providing local spatial mixing while
+Mamba handles temporal evolution. (Note: with `k = 8` and 6 layers, effective
+spatial receptive field is local-to-regional, not global — for `P = 1,024`
+cortical patches, full coverage would require more layers or a coarser
+hierarchical pooling, which we treat as future work.)
 
 Subject anatomy enters via FiLM modulation [Perez et al. 2018] of token
 features, parameterized by a per-subject vector of cortical thickness, surface
@@ -112,6 +121,10 @@ all subject-specific behavior enters via the structural FiLM conditioning.
 
 **Phase 1 (brain-only):** single- and multi-step forecasting at 1, 5, and 10 TR
 horizons, with mean-squared error aggregated over all tokens and all horizons.
+Multi-step forecasts are non-autoregressive: a single multi-headed regression
+module emits `{ŷ_{t+1}, ŷ_{t+5}, ŷ_{t+10}}` from `h_t` in parallel; the model
+is not rolled forward at training time. The demo configuration uses the
+two-horizon subset `{1, 5}` (see Demo Scope below).
 
 **Phase 2 (multimodal):** forecasting loss plus contrastive brain–stimulus
 InfoNCE [van den Oord et al. 2018] computed on 30-second non-overlapping
@@ -184,3 +197,29 @@ held-out-subject performance is reported and interpreted as such. We do not
 interpret latent states as "representing" specific cognitive processes;
 downstream task decoding tests for representational structure consistent with
 task labels, which is a forward inference [Poldrack 2006].
+
+## Demo Scope (10-Day Seed-Grant Result)
+
+This document specifies the full proposed system. The 10-day demo plan in
+[`docs/10_day_plan.md`](10_day_plan.md) exercises a strict subset to produce
+a single defensible headline result (subject fingerprinting on HCP 3T rsfMRI
+vs. a Schaefer-400 ROI matched-architecture baseline). The demo is therefore
+infrastructure validation (atlas-free tokenizer round-trip; multi-GPU Mamba
+training pipeline; frozen-backbone retrieval eval) rather than evidence of
+the foundation-model thesis itself; the seed grant funds the components
+omitted below.
+
+| Component | Full project | 10-day demo |
+|---|---|---|
+| Tokenization | 1024 cortex + 768 subcortex/cerebellum (`P = 1,792`) | Cortex-only (`P = 1,024`) |
+| Datasets | HCP 3T rest + HCP 7T movie + CNeuroMod | HCP 3T rsfMRI only |
+| Subjects | ~190 | 16 train + 8 held-out |
+| Family-disjoint splits | Enforced via `Restricted_*.csv` | Not enforced (open-access only; documented caveat) |
+| Training phases | Phase 1 (brain-only) + Phase 2 (multimodal) | Phase 1 only |
+| Stimulus stream | Frozen CLIP + canonical HRF + learned FIR residual | Not present |
+| FiLM conditioning | Per-token FreeSurfer-derived structural features | Not present |
+| Loss | Forecasting MSE + InfoNCE | Forecasting MSE only |
+| Forecasting horizons | `{1, 5, 10}` TR | `{1, 5}` TR |
+| Backbone size | 6 layers @ `d_model=256` (default); 12 @ 512 (scaled) | 4 layers @ `d_model=128` (~1M params) |
+| Held-out evaluation | Subject fingerprinting + phenotype + 7-class task decoding | Subject fingerprinting only |
+| Baselines | Schaefer-400 + behavior-from-FC + volumetric MVPA | Schaefer-400 (matched-architecture) |
