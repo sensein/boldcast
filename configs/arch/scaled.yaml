@@ -1,0 +1,20 @@
+# BOLDcast scaled architecture (~26.5M params)
+# Larger model for full-scale training; fits 3-6 sequences per H200.
+name: scaled
+
+d_in: 1
+d_model: 512
+n_layers: 12
+n_heads: 8
+
+mamba:
+  d_state: 16
+  d_conv: 4
+  expand: 2
+
+spatial:
+  type: knn_attention
+  k: 8
+
+n_patches_cortex: 1024
+n_patches_subcortex: 768

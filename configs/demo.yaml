@@ -1,0 +1,64 @@
+# BOLDcast 10-day demo config (see docs/10_day_plan.md).
+# Single source of truth for all demo scripts. No CLI overrides except --seed.
+
+defaults:
+  - arch: demo
+  - _self_
+
+seed: 0
+
+# Data ----------------------------------------------------------------------
+data:
+  dataset: hcp_rest
+  hcp_root: ${oc.env:DATA}/HCP_S1200
+  surface_dir: ${oc.env:DATA}/HCP_S1200/MNINonLinear/fsaverage_LR32k
+  subjects_train_file: configs/subjects_train.txt
+  subjects_heldout_file: configs/subjects_heldout.txt
+  runs:
+    - rfMRI_REST1_LR
+    - rfMRI_REST1_RL
+    - rfMRI_REST2_LR
+    - rfMRI_REST2_RL
+  tr_seconds: 0.72
+
+# Tokenization ---------------------------------------------------------------
+tokenize:
+  n_patches_cortex: 1024
+  fps_seed: 0
+  patch_cache: cache/patches_fsLR_32k_n1024_seed0.npz
+  knn_k: 8
+  knn_cache: cache/knn_k8_n1024.npz
+  cache_dir: ${oc.env:SCRATCH}/boldcast/cache_demo
+  standardize: run_wise   # mean/std per run before caching
+
+# Windowing ------------------------------------------------------------------
+window:
+  size: 256
+  stride: 128
+
+# Training -------------------------------------------------------------------
+train:
+  batch_size_per_gpu: 4
+  grad_accum_steps: 1
+  max_steps: 3000
+  lr: 3.0e-4
+  weight_decay: 0.01
+  warmup_steps: 0
+  schedule: cosine
+  precision: bf16
+  forecasting_horizons: [1, 5]
+  log_every: 50
+  ckpt_every: 500
+  out_dir: results/day5_train
+
+# Held-out eval --------------------------------------------------------------
+eval:
+  batch_size_per_gpu: 4
+  out_dir: results/day7_fingerprint
+  windows_seconds: [15, 30, 60, 300]   # for window sweep
+  topk: [1, 5, 10]
+
+# Distributed ----------------------------------------------------------------
+ddp:
+  find_unused_parameters: false
+  num_gpus: 2

@@ -1,6 +1,29 @@
 .claude/
 CLAUDE.md
 
+# BOLDcast: generated artifacts (everything except the .gitkeep markers)
+cache/*
+!cache/.gitkeep
+results/*
+!results/.gitkeep
+figures/*
+!figures/.gitkeep
+!figures/demo/
+
+# Model checkpoints
+*.pt
+*.pth
+*.ckpt
+
+# Local configs
+configs/local.yaml
+
+# SLURM logs
+logs/
+
+# Profiling
+*.prof
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]

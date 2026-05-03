@@ -1,0 +1,20 @@
+# BOLDcast default architecture (~5.2M params)
+# Whole-brain (cortex + subcortex), per docs/methods.md.
+name: default
+
+d_in: 1
+d_model: 256
+n_layers: 6
+n_heads: 8
+
+mamba:
+  d_state: 16
+  d_conv: 4
+  expand: 2
+
+spatial:
+  type: knn_attention
+  k: 8
+
+n_patches_cortex: 1024
+n_patches_subcortex: 768
