@@ -11,7 +11,11 @@ seed: 0
 data:
   dataset: hcp_rest
   hcp_root: ${oc.env:DATA}/HCP_S1200
-  surface_dir: ${oc.env:DATA}/HCP_S1200/MNINonLinear/fsaverage_LR32k
+  # Per-subject mesh dir (subject ID is interpolated by the loader, not Hydra).
+  surface_dir_template: ${oc.env:DATA}/HCP_S1200/{subject}/MNINonLinear/fsaverage_LR32k
+  # Standard HCP minimal-preprocessing CIFTI: 32k_fs_LR + MNI152, MSMAll-aligned,
+  # FIX-ICA cleaned, hp2000 high-pass. Grayordinate-level — not parcellated.
+  dtseries_pattern: ${oc.env:DATA}/HCP_S1200/{subject}/MNINonLinear/Results/{run}/{run}_Atlas_MSMAll_hp2000_clean.dtseries.nii
   subjects_train_file: configs/subjects_train.txt
   subjects_heldout_file: configs/subjects_heldout.txt
   runs:
@@ -57,6 +61,15 @@ eval:
   out_dir: results/day7_fingerprint
   windows_seconds: [15, 30, 60, 300]   # for window sweep
   topk: [1, 5, 10]
+
+# Schaefer-400 ROI baseline (day 6) ------------------------------------------
+# CIFTI surface release on fs_LR_32k from CBIG (NOT the volumetric nilearn
+# fetcher). Same input dtseries as BOLDcast — only the tokenization differs.
+baseline:
+  schaefer_dlabel: ${oc.env:DATA}/atlases/Schaefer2018_400Parcels_17Networks_order_fslr32k.dlabel.nii
+  n_rois: 400
+  cache_dir: ${oc.env:SCRATCH}/boldcast/cache_demo_schaefer
+  out_dir: results/day6_baseline
 
 # Distributed ----------------------------------------------------------------
 ddp:

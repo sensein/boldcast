@@ -36,6 +36,15 @@ phenotype/trait prediction, and HCP cognitive task decoding.
 
 ## Atlas-Free CIFTI Tokenization
 
+"Atlas-free" here refers specifically to the absence of a parcellation atlas
+(Schaefer, Glasser MMP, AAL, etc.) for tokenization. Inter-subject
+registration to the HCP standard reference space is required and assumed:
+inputs are dense CIFTI grayordinate scalars from the HCP minimal-preprocessing
+pipeline `*_Atlas_MSMAll_hp2000_clean.dtseries.nii` files (multimodal surface
+matching, FIX-ICA denoised, high-pass filtered at 2000s) on the `32k_fs_LR`
+cortical mesh and MNI152 subcortical grid. Tokenization operates on this
+grayordinate input; no ROI averaging is applied.
+
 Each TR is represented as a fixed set of `P = 1,792` spatial tokens drawn from
 the HCP CIFTI grayordinate space [Glasser et al. 2013]: `1,024` cortical
 patches plus `768` subcortical/cerebellar clusters. Cortical patches are
