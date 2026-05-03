@@ -84,12 +84,18 @@ cortical patches, full coverage would require more layers or a coarser
 hierarchical pooling, which we treat as future work.)
 
 Subject anatomy enters via FiLM modulation [Perez et al. 2018] of token
-features, parameterized by a per-subject vector of cortical thickness, surface
-area, sulcal depth, and myelin (T1w/T2w ratio) extracted from FreeSurfer outputs
-provided with HCP and CNeuroMod. This conditioning encodes the principle that
-functional dynamics are shaped by structural morphology and provides a route to
-cross-subject application without learned subject embeddings (which by
-construction do not transfer to held-out subjects).
+features. The conditioning input is a `(P, 4)` per-token structural feature
+tensor — cortical thickness, surface area, sulcal depth, and myelin
+(T1w/T2w ratio), each averaged within the corresponding patch from
+FreeSurfer outputs distributed with HCP and CNeuroMod (`MNINonLinear/
+fsaverage_LR32k/{S}.{thickness,area,sulc,MyelinMap}*` files), then
+z-scored across subjects. A small MLP maps this `(P, 4)` tensor to FiLM
+parameters `(γ, β)` per token per subject. Per-token (rather than
+per-subject-scalar) conditioning preserves the spatial morphology that
+motivates the architectural choice; encoding only a 4-scalar global
+summary would discard the very inductive bias we are trying to inject.
+This route gives cross-subject application without learned subject
+embeddings (which by construction do not transfer to held-out subjects).
 
 ## Long-Context Mamba Backbone
 
@@ -107,9 +113,15 @@ For multimodal training, naturalistic stimuli are encoded by frozen CLIP
 ViT-L/14 [Radford et al. 2021], with embeddings precomputed and cached per
 stimulus. A small learned MLP projects CLIP features to the model's latent
 dimension. Alignment to BOLD is handled by a two-stage hemodynamic module:
-(i) convolution with a canonical SPM double-gamma HRF, (ii) a learned 1D
-residual lag/blur filter (FIR, length 7 TR) that adjusts for subject- and
-dataset-specific timing. This decomposition isolates the
+(i) convolution with a canonical SPM double-gamma HRF, which carries the
+bulk of the canonical 6 s peak + ~16 s tail; (ii) a learned 1D **residual**
+lag/blur filter (FIR) on top of the canonical, sized to span ≈ 8 s of
+residual structure per dataset (≈ 11 TR at HCP 3T, TR = 0.72 s; ≈ 8 TR at
+HCP 7T, TR = 1.0 s; ≈ 5 TR at CNeuroMod, TR = 1.49 s). The FIR adjusts
+for subject- and region-specific timing deviations from the canonical;
+because the canonical absorbs the long HRF tail, the FIR length is set
+in seconds rather than fixed in TRs, keeping the residual support
+TR-invariant across datasets. This decomposition isolates the
 subject-/dataset-invariant canonical response from learnable residuals and
 avoids the computational infeasibility of full end-to-end stimulus encoding
 from raw video at our scale.
@@ -183,6 +195,15 @@ nobrainer framework [Ghosh lab, MIT]. The model itself will be released under
 Apache 2.0 with reproducible training and evaluation scripts; JOSS submission
 will accompany the software release. The research paper will target NeurIPS or
 ICLR 2027.
+
+**Reproducibility caveats.** The `mamba-ssm` selective-scan CUDA kernel
+(`selective_scan_cuda`) is not bitwise-deterministic on GPU; numerical
+results from a fixed seed are reproducible up to seed-fixed initialization,
+deterministic dataset shuffling (`DistributedSampler(seed=...)`), and
+locked `CUBLAS_WORKSPACE_CONFIG`, but bit-identical reproduction across
+runs or hardware (H100 vs H200 vs B200) is not guaranteed under BF16 +
+selective scan. Reported numbers in this work are from H200 unless
+otherwise specified.
 
 ## Scope and Honest Limitations
 
