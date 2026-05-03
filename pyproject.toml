@@ -74,25 +74,23 @@ docs = [
     "myst-parser>=3.0",
 ]
 
-[project.scripts]
-boldcast-train    = "boldcast.scripts.train:main"
-boldcast-evaluate = "boldcast.scripts.evaluate:main"
-
 [project.urls]
-Repository = "https://github.com/yibei/boldcast"
-"Bug Tracker" = "https://github.com/yibei/boldcast/issues"
+Repository = "https://github.com/yibeichan/boldcast"
+"Bug Tracker" = "https://github.com/yibeichan/boldcast/issues"
 
 # ---------------------------------------------------------------------------
 # Tool configurations
 # ---------------------------------------------------------------------------
 
 [tool.setuptools.packages.find]
-where = ["src"]
+where = ["."]
+include = ["boldcast*"]
+exclude = ["experiments*", "tests*", "scripts*", "benchmarks*"]
 
 [tool.ruff]
 line-length = 100
 target-version = "py310"
-src = ["src", "tests", "scripts", "benchmarks"]
+src = ["boldcast", "tests", "scripts", "benchmarks"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "ANN", "NPY"]
@@ -112,5 +110,5 @@ testpaths = ["tests"]
 addopts = "-v --cov=boldcast --cov-report=term-missing"
 
 [tool.coverage.run]
-source = ["src/boldcast"]
-omit = ["tests/*", "benchmarks/*", "scripts/*"]
+source = ["boldcast"]
+omit = ["tests/*", "benchmarks/*", "scripts/*", "experiments/*"]
