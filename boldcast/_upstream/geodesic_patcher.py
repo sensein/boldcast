@@ -21,7 +21,7 @@ from typing import Literal
 
 import numpy as np
 from scipy.sparse import csr_matrix
-from scipy.sparse.csgraph import dijkstra
+from scipy.sparse.csgraph import connected_components, dijkstra
 
 __all__ = ["precompute_patches"]
 
@@ -67,6 +67,16 @@ def precompute_patches(
         Per-grayordinate patch ID. LH grayordinates get IDs in
         ``[0, n_patches // 2)``; RH grayordinates get IDs in
         ``[n_patches // 2, n_patches)``.
+
+    Notes
+    -----
+    Each hemisphere mesh must be a **single connected component**. The
+    ``32k_fs_LR`` standard meshes satisfy this; multi-component meshes
+    (e.g., two icospheres with no shared vertices) will raise a
+    ``ValueError`` when the ``"geodesic_dijkstra"`` metric is used.
+    Geodesic distances across disconnected components are undefined
+    (``scipy`` returns ``inf``), which would produce silent garbage in
+    the FPS and assignment steps.
     """
     if metric not in ("geodesic_dijkstra", "euclidean3d"):
         raise ValueError(
@@ -99,6 +109,14 @@ def _fps_one_hemisphere(
 
     if metric == "geodesic_dijkstra":
         adj = _build_edge_graph(verts, faces)
+        n_components, _ = connected_components(adj, directed=False)
+        if n_components != 1:
+            raise ValueError(
+                f"Hemisphere mesh has {n_components} connected components; "
+                "FPS requires a single connected component. "
+                "Check that the input mesh is a valid closed surface "
+                "(e.g., 32k_fs_LR) with no isolated sub-meshes."
+            )
         sources, per_source_dists = _fps_dijkstra(adj, n_patches_hem, first_source)
         per_vertex_assignment = _assign_to_nearest_source_dijkstra(per_source_dists)
     else:

@@ -118,3 +118,31 @@ def test_odd_n_patches_raises(
             n_patches=7,
             seed=0,
         )
+
+
+def test_disconnected_mesh_raises_for_geodesic_dijkstra() -> None:
+    """Two separate icospheres with no shared vertices → geodesic FPS must raise."""
+    import trimesh
+
+    m1 = trimesh.creation.icosphere(subdivisions=1)
+    m2 = trimesh.creation.icosphere(subdivisions=1)
+    # Offset m2 so vertex coordinates don't overlap
+    v2 = m2.vertices + np.array([10.0, 0.0, 0.0])
+    n1 = m1.vertices.shape[0]
+    n2 = m2.vertices.shape[0]
+    # Combine into one multi-component mesh
+    verts = np.concatenate([m1.vertices, v2], axis=0).astype(np.float32)
+    faces = np.concatenate([m1.faces, m2.faces + n1], axis=0).astype(np.int32)
+    cortex_indices = np.arange(n1 + n2)
+
+    disconnected_mesh = (verts, faces)
+    with pytest.raises(ValueError, match="connected component"):
+        precompute_patches(
+            mesh_lh=disconnected_mesh,
+            mesh_rh=disconnected_mesh,
+            cortex_indices_lh=cortex_indices,
+            cortex_indices_rh=cortex_indices,
+            n_patches=8,
+            seed=0,
+            metric="geodesic_dijkstra",
+        )
