@@ -65,4 +65,4 @@ class Patcher(torch.nn.Module):
             x.shape[0], self.n_patches, dtype=x.dtype, device=x.device
         )
         sums.index_add_(1, assignment, x)
-        return sums / counts.to(x.dtype).clamp_min(1.0)
+        return sums / counts.to(x.dtype)
