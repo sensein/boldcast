@@ -120,6 +120,40 @@ def test_odd_n_patches_raises(
         )
 
 
+def test_geodesic_and_euclidean_disagree_on_nonconvex_mesh() -> None:
+    """On a torus (genus-1), geodesic and Euclidean assignments must differ on >0 vertices."""
+    import trimesh
+
+    m = trimesh.creation.torus(major_radius=1.0, minor_radius=0.3,
+                                major_sections=16, minor_sections=8)
+    verts = m.vertices.astype(np.float32)
+    faces = m.faces.astype(np.int32)
+    cortex_indices = np.arange(verts.shape[0])
+
+    geo = precompute_patches(
+        mesh_lh=(verts, faces),
+        mesh_rh=(verts, faces),
+        cortex_indices_lh=cortex_indices,
+        cortex_indices_rh=cortex_indices,
+        n_patches=16,
+        seed=0,
+        metric="geodesic_dijkstra",
+    )
+    eu = precompute_patches(
+        mesh_lh=(verts, faces),
+        mesh_rh=(verts, faces),
+        cortex_indices_lh=cortex_indices,
+        cortex_indices_rh=cortex_indices,
+        n_patches=16,
+        seed=0,
+        metric="euclidean3d",
+    )
+    n = cortex_indices.shape[0]
+    assert (geo[:n] != eu[:n]).any(), (
+        "geodesic and euclidean assignments should differ on at least one vertex of a torus"
+    )
+
+
 def test_disconnected_mesh_raises_for_geodesic_dijkstra() -> None:
     """Two separate icospheres with no shared vertices → geodesic FPS must raise."""
     import trimesh
