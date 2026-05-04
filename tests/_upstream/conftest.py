@@ -31,14 +31,14 @@ def synthetic_dtseries(tmp_path: Path) -> Path:
     )
 
     bm_lh = cifti2_axes.BrainModelAxis.from_surface(
-        vertex=np.arange(n_lh_grayordinates),
+        vertices=np.arange(n_lh_grayordinates),
         nvertex=n_lh_vertices,
-        name="CIFTI_STRUCTURE_CORTEX_LEFT",
+        name="CortexLeft",
     )
     bm_rh = cifti2_axes.BrainModelAxis.from_surface(
-        vertex=np.arange(n_rh_grayordinates),
+        vertices=np.arange(n_rh_grayordinates),
         nvertex=n_rh_vertices,
-        name="CIFTI_STRUCTURE_CORTEX_RIGHT",
+        name="CortexRight",
     )
     brain_axis = bm_lh + bm_rh
     series_axis = cifti2_axes.SeriesAxis(start=0.0, step=1.0, size=n_tr)
