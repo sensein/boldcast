@@ -32,7 +32,10 @@ data:
 tokenize:
   n_patches_cortex: 1024
   fps_seed: 0
-  patch_cache: cache/patches_fsLR_32k_n1024_seed0.npz
+  # Cache filename embeds the FPS metric (`_geo` for geodesic_dijkstra,
+  # `_eu3d` for euclidean3d) per docs/adr/0002 — defense-in-depth on top
+  # of the (n_patches, seed, metric) metadata key inside the .npz.
+  patch_cache: cache/patches_fsLR_32k_n1024_seed0_geo.npz
   knn_k: 8
   knn_cache: cache/knn_k8_n1024.npz
   cache_dir: ${oc.env:SCRATCH}/boldcast/cache_demo

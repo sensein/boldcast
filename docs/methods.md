@@ -60,6 +60,20 @@ per TR (scalar) after run-wise standardization. Round-trip decoding from
 patches to grayordinates is verified to numerical precision on all training
 subjects.
 
+Geodesic FPS is implemented as edge-graph Dijkstra on the cortical mesh
+(weighted by Euclidean edge length), incrementally maintaining a
+min-distance-to-source-set array via one Dijkstra per newly-picked
+source. This is itself a graph-level approximation of the exact
+polyhedral geodesic; both this and the heat-method approximation
+[Crane et al. 2013] are routinely used for FPS in mesh processing. On
+`32k_fs_LR` the per-hemisphere build is one-time and takes ~1–3 minutes
+via `scipy.sparse.csgraph.dijkstra`; the result is cached. A
+3D-Euclidean fallback on vertex coordinates is exposed via a `metric`
+parameter for cases where the geodesic build is intolerable (at the
+cost of distances that jump across sulci). Heat-method geodesics are a
+viable upgrade for higher-resolution meshes or ablation sweeps that
+build many parcellations.
+
 This design contrasts with parcellation-based tokenization
 [e.g., Schaefer-400, Schaefer et al. 2018], which discards within-parcel
 spatial structure, and with 4D voxel grids [SwiFT], which expend compute on
