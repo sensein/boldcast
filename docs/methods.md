@@ -233,7 +233,7 @@ omitted below.
 | Component | Full project | 10-day demo |
 |---|---|---|
 | Tokenization | 1024 cortex + 768 subcortex/cerebellum (`P = 1,792`) | Cortex-only (`P = 1,024`) |
-| Datasets | HCP 3T rest + HCP 7T movie + CNeuroMod | HCP 3T rsfMRI only |
+| Datasets | HCP 3T rest + HCP 7T movie + CNeuroMod | HCP 7T rsfMRI only (4 of 8 REST runs available locally; alternating PE) |
 | Subjects | ~190 | 16 train + 8 held-out |
 | Family-disjoint splits | Enforced via `Restricted_*.csv` | Not enforced (open-access only; documented caveat) |
 | Training phases | Phase 1 (brain-only) + Phase 2 (multimodal) | Phase 1 only |

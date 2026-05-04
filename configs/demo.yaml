@@ -10,20 +10,23 @@ seed: 0
 # Data ----------------------------------------------------------------------
 data:
   dataset: hcp_rest
-  hcp_root: ${oc.env:DATA}/HCP_S1200
+  hcp_root: ${oc.env:HCP_ROOT}
   # Per-subject mesh dir (subject ID is interpolated by the loader, not Hydra).
-  surface_dir_template: ${oc.env:DATA}/HCP_S1200/{subject}/MNINonLinear/fsaverage_LR32k
+  surface_dir_template: ${oc.env:HCP_ROOT}/{subject}/MNINonLinear/fsaverage_LR32k
   # Standard HCP minimal-preprocessing CIFTI: 32k_fs_LR + MNI152, MSMAll-aligned,
   # FIX-ICA cleaned, hp2000 high-pass. Grayordinate-level — not parcellated.
-  dtseries_pattern: ${oc.env:DATA}/HCP_S1200/{subject}/MNINonLinear/Results/{run}/{run}_Atlas_MSMAll_hp2000_clean.dtseries.nii
+  dtseries_pattern: ${oc.env:HCP_ROOT}/{subject}/MNINonLinear/Results/{run}/{run}_Atlas_MSMAll_hp2000_clean.dtseries.nii
   subjects_train_file: configs/subjects_train.txt
   subjects_heldout_file: configs/subjects_heldout.txt
+  # HCP 7T resting-state, 4 of 8 REST runs available locally (alternating PE,
+  # one per REST scan). When the other 4 PEs are pulled from datalad, expand
+  # this list and update the windowing math in docs/10_day_plan.md.
   runs:
-    - rfMRI_REST1_LR
-    - rfMRI_REST1_RL
-    - rfMRI_REST2_LR
-    - rfMRI_REST2_RL
-  tr_seconds: 0.72
+    - rfMRI_REST1_7T_PA
+    - rfMRI_REST2_7T_AP
+    - rfMRI_REST3_7T_PA
+    - rfMRI_REST4_7T_AP
+  tr_seconds: 1.0
 
 # Tokenization ---------------------------------------------------------------
 tokenize:
@@ -41,8 +44,11 @@ window:
   stride: 128
 
 # Training -------------------------------------------------------------------
-# 3000 steps ≈ 42 epochs over 16 train subjects (576 windows / batch 8 ≈ 72
-# steps/epoch). High epoch count is acceptable with regularization below.
+# 3000 steps ≈ 63 epochs over 16 train subjects (384 windows / batch 8 = 48
+# steps/epoch). 7T REST runs are ~900 TRs at TR=1.0s; (900-256)/128+1 ≈ 6
+# windows/run × 4 runs × 16 subjects = 384 train windows. High epoch count
+# is acceptable with regularization below; if held-out loss saturates before
+# step 3000, take the earliest checkpoint that meets the held-out criterion.
 train:
   batch_size_per_gpu: 4
   grad_accum_steps: 1
