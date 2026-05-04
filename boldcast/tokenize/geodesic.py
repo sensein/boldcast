@@ -67,7 +67,8 @@ def build_or_load_patches(
                 f"requested {metadata}, cached {cached_meta}. "
                 "Delete the cache file to rebuild."
             )
-        return loaded["assignment"]
+        cached_assignment: np.ndarray = loaded["assignment"]
+        return cached_assignment
 
     verts_lh, faces_lh = load_gifti_surface(mesh_lh_path)
     verts_rh, faces_rh = load_gifti_surface(mesh_rh_path)
@@ -81,9 +82,10 @@ def build_or_load_patches(
         metric=metric,
     )
     cache.parent.mkdir(parents=True, exist_ok=True)
-    np.savez(
-        cache,
-        assignment=assignment,
+    arrays: dict[str, np.ndarray] = {
+        "assignment": assignment,
         **{k: np.asarray(v) for k, v in metadata.items()},
-    )
+    }
+    # numpy's savez stub typing is loose; runtime accepts arbitrary array kwargs.
+    np.savez(str(cache), **arrays)  # type: ignore[arg-type]
     return assignment

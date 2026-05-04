@@ -7,7 +7,6 @@ from pathlib import Path
 import nibabel as nib
 import numpy as np
 import torch
-
 from boldcast.io.cifti import cortex_grayordinate_indices, load_dtseries
 from boldcast.tokenize.geodesic import build_or_load_patches
 from boldcast.tokenize.patcher import Patcher

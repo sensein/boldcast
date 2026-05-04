@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import cast
+
 import torch
 
 __all__ = ["Patcher"]
@@ -50,13 +52,17 @@ class Patcher(torch.nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Mean-pool ``x`` of shape ``(T, V_cortex)`` to ``(T, n_patches)``."""
-        if x.ndim != 2 or x.shape[1] != self.patch_assignment.shape[0]:
+        # Buffers are exposed as Tensor at runtime; register_buffer's typing
+        # is loose, so cast for mypy strict.
+        assignment = cast(torch.Tensor, self.patch_assignment)
+        counts = cast(torch.Tensor, self.counts)
+        if x.ndim != 2 or x.shape[1] != assignment.shape[0]:
             raise ValueError(
-                f"expected x of shape (T, {self.patch_assignment.shape[0]}); "
+                f"expected x of shape (T, {assignment.shape[0]}); "
                 f"got {tuple(x.shape)}"
             )
         sums = torch.zeros(
             x.shape[0], self.n_patches, dtype=x.dtype, device=x.device
         )
-        sums.index_add_(1, self.patch_assignment, x)
-        return sums / self.counts.to(x.dtype).clamp_min(1.0)
+        sums.index_add_(1, assignment, x)
+        return sums / counts.to(x.dtype).clamp_min(1.0)

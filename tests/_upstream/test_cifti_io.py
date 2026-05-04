@@ -10,7 +10,6 @@ from pathlib import Path
 import nibabel as nib
 import numpy as np
 import trimesh
-
 from boldcast._upstream.cifti_io import (
     cortex_grayordinate_indices,
     load_dtseries,

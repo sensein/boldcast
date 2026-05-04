@@ -105,7 +105,8 @@ def _fps_one_hemisphere(
         sources = _fps_euclidean3d(verts, n_patches_hem, first_source)
         per_vertex_assignment = _assign_to_nearest_source_euclidean(verts, sources)
 
-    return per_vertex_assignment[cortex_indices] + hemisphere_offset
+    result: np.ndarray = per_vertex_assignment[cortex_indices] + hemisphere_offset
+    return result
 
 
 def _build_edge_graph(verts: np.ndarray, faces: np.ndarray) -> csr_matrix:
@@ -138,7 +139,8 @@ def _assign_to_nearest_source_dijkstra(
 ) -> np.ndarray:
     """For each vertex, return the index (within ``sources``) of the closest source."""
     dists = dijkstra(adj, indices=sources, directed=False)  # (n_sources, n_verts)
-    return np.argmin(dists, axis=0).astype(np.int32)
+    out: np.ndarray = np.argmin(dists, axis=0).astype(np.int32)
+    return out
 
 
 def _fps_euclidean3d(
@@ -160,4 +162,5 @@ def _assign_to_nearest_source_euclidean(
 ) -> np.ndarray:
     diff = verts[None, :, :] - verts[sources][:, None, :]  # (n_sources, n_verts, 3)
     dists = np.linalg.norm(diff, axis=-1)
-    return np.argmin(dists, axis=0).astype(np.int32)
+    out: np.ndarray = np.argmin(dists, axis=0).astype(np.int32)
+    return out

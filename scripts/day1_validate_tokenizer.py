@@ -22,11 +22,10 @@ from pathlib import Path
 
 import numpy as np
 import torch
-from omegaconf import OmegaConf
-
 from boldcast.io.cifti import cortex_grayordinate_indices, load_dtseries
 from boldcast.tokenize.geodesic import build_or_load_patches
 from boldcast.tokenize.patcher import Patcher
+from omegaconf import OmegaConf
 
 
 def main() -> int:
@@ -148,9 +147,8 @@ def _render_patch_figure(
 ) -> None:
     """Save a 2-panel LH/RH cortex figure colored by patch ID."""
     import matplotlib.pyplot as plt
-    from matplotlib.colors import ListedColormap
-
     from boldcast.io.cifti import load_gifti_surface
+    from matplotlib.colors import ListedColormap
 
     n_lh = cortex_lh.shape[0]
     lh_assignment = assignment[:n_lh]

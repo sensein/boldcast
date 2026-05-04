@@ -7,7 +7,6 @@ from pathlib import Path
 import nibabel as nib
 import numpy as np
 import pytest
-
 from boldcast.tokenize.geodesic import build_or_load_patches
 
 

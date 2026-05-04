@@ -3,12 +3,21 @@
 Self-contained module: no imports from any other ``boldcast`` submodule.
 Targeted for upstream contribution to ``nobrainer.io`` (see
 ``boldcast/_upstream/README.md``).
+
+Note on type checking: nibabel ships sparse type stubs, so several
+``# type: ignore[attr-defined]`` markers below cover symbols that exist
+at runtime but are not declared in nibabel's stubs (``nib.load``,
+``Cifti2Image``, ``get_fdata``, ``get_axis``, ``darrays``, etc.). These
+are upstream stub gaps, not bugs in our code.
 """
 
 from __future__ import annotations
 
+from typing import Any
+
 import nibabel as nib
 import numpy as np
+from numpy.typing import NDArray
 
 __all__ = [
     "cortex_grayordinate_indices",
@@ -18,7 +27,7 @@ __all__ = [
 ]
 
 
-def load_dtseries(path: str) -> tuple[np.ndarray, dict]:
+def load_dtseries(path: str) -> tuple[NDArray[np.float32], dict[str, Any]]:
     """Load a CIFTI dtseries file.
 
     Parameters
@@ -36,16 +45,18 @@ def load_dtseries(path: str) -> tuple[np.ndarray, dict]:
         ``name``, ``slice``, ``vertex`` mesh-index array, and ``nvertex``
         of the parent mesh).
     """
-    img = nib.load(path)
-    data = np.asarray(img.get_fdata(), dtype=np.float32)
-    series_axis = img.header.get_axis(0)
-    brain_axis = img.header.get_axis(1)
+    img = nib.load(path)  # type: ignore[attr-defined]
+    data = np.asarray(img.get_fdata(), dtype=np.float32)  # type: ignore[attr-defined]
+    series_axis = img.header.get_axis(0)  # type: ignore[attr-defined]
+    brain_axis = img.header.get_axis(1)  # type: ignore[attr-defined]
 
-    brain_models: list[dict] = []
+    brain_models: list[dict[str, Any]] = []
     for name, slc, struct in brain_axis.iter_structures():
         if struct.nvertices:
             nvertex = int(next(iter(struct.nvertices.values())))
-            vertex = np.asarray(struct.vertex, dtype=np.int64)
+            vertex: NDArray[np.int64] | None = np.asarray(
+                struct.vertex, dtype=np.int64
+            )
         else:
             nvertex = 0
             vertex = None
@@ -53,7 +64,7 @@ def load_dtseries(path: str) -> tuple[np.ndarray, dict]:
             {"name": name, "slice": slc, "vertex": vertex, "nvertex": nvertex}
         )
 
-    header = {
+    header: dict[str, Any] = {
         "n_grayordinates": int(brain_axis.size),
         "n_tr": int(series_axis.size),
         "tr_seconds": float(series_axis.step),
@@ -62,7 +73,7 @@ def load_dtseries(path: str) -> tuple[np.ndarray, dict]:
     return data, header
 
 
-def save_dtseries(data: np.ndarray, template: str, out: str) -> None:
+def save_dtseries(data: NDArray[np.floating[Any]], template: str, out: str) -> None:
     """Save ``data`` as a CIFTI dtseries using the brain/series axes of ``template``.
 
     Parameters
@@ -74,12 +85,16 @@ def save_dtseries(data: np.ndarray, template: str, out: str) -> None:
     out : str
         Output path (``*.dtseries.nii``).
     """
-    template_img = nib.load(template)
-    img = nib.cifti2.Cifti2Image(np.asarray(data, dtype=np.float32), template_img.header)
-    nib.save(img, out)
+    template_img = nib.load(template)  # type: ignore[attr-defined]
+    img = nib.cifti2.Cifti2Image(  # type: ignore[attr-defined,no-untyped-call]
+        np.asarray(data, dtype=np.float32), template_img.header
+    )
+    nib.save(img, out)  # type: ignore[attr-defined]
 
 
-def cortex_grayordinate_indices(header: dict) -> tuple[np.ndarray, np.ndarray]:
+def cortex_grayordinate_indices(
+    header: dict[str, Any],
+) -> tuple[NDArray[np.int64], NDArray[np.int64]]:
     """Return mesh-vertex indices for LH and RH cortex grayordinates.
 
     Parameters
@@ -108,7 +123,7 @@ def cortex_grayordinate_indices(header: dict) -> tuple[np.ndarray, np.ndarray]:
     return lh["vertex"], rh["vertex"]
 
 
-def load_gifti_surface(path: str) -> tuple[np.ndarray, np.ndarray]:
+def load_gifti_surface(path: str) -> tuple[NDArray[np.float32], NDArray[np.int32]]:
     """Load a GIFTI surface mesh.
 
     Parameters
@@ -121,9 +136,9 @@ def load_gifti_surface(path: str) -> tuple[np.ndarray, np.ndarray]:
     vertices : ndarray of shape ``(V, 3)`` float32
     faces : ndarray of shape ``(F, 3)`` int32
     """
-    img = nib.load(path)
+    img = nib.load(path)  # type: ignore[attr-defined]
     pointset_intent = nib.nifti1.intent_codes.code["pointset"]
     triangle_intent = nib.nifti1.intent_codes.code["triangle"]
-    verts = next(d for d in img.darrays if d.intent == pointset_intent).data
-    faces = next(d for d in img.darrays if d.intent == triangle_intent).data
+    verts = next(d for d in img.darrays if d.intent == pointset_intent).data  # type: ignore[attr-defined]
+    faces = next(d for d in img.darrays if d.intent == triangle_intent).data  # type: ignore[attr-defined]
     return np.asarray(verts, dtype=np.float32), np.asarray(faces, dtype=np.int32)
