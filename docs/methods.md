@@ -63,11 +63,14 @@ subjects.
 Geodesic FPS is implemented as edge-graph Dijkstra on the cortical mesh
 (weighted by Euclidean edge length), incrementally maintaining a
 min-distance-to-source-set array via one Dijkstra per newly-picked
-source. This is itself a graph-level approximation of the exact
-polyhedral geodesic; both this and the heat-method approximation
-[Crane et al. 2013] are routinely used for FPS in mesh processing. On
-`32k_fs_LR` the per-hemisphere build is one-time and takes ~1–3 minutes
-via `scipy.sparse.csgraph.dijkstra`; the result is cached. A
+source. The distance array computed for each FPS source is retained and
+reused directly for per-vertex patch assignment (argmin over sources),
+so no additional Dijkstra passes are required after FPS completes. This
+is itself a graph-level approximation of the exact polyhedral geodesic;
+both this and the heat-method approximation [Crane et al. 2013] are
+routinely used for FPS in mesh processing. On `32k_fs_LR` the
+per-hemisphere build is one-time and takes ~1–3 minutes via
+`scipy.sparse.csgraph.dijkstra`; the result is cached. A
 3D-Euclidean fallback on vertex coordinates is exposed via a `metric`
 parameter for cases where the geodesic build is intolerable (at the
 cost of distances that jump across sulci). Heat-method geodesics are a

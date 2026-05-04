@@ -99,8 +99,8 @@ def _fps_one_hemisphere(
 
     if metric == "geodesic_dijkstra":
         adj = _build_edge_graph(verts, faces)
-        sources = _fps_dijkstra(adj, n_patches_hem, first_source)
-        per_vertex_assignment = _assign_to_nearest_source_dijkstra(adj, sources)
+        sources, per_source_dists = _fps_dijkstra(adj, n_patches_hem, first_source)
+        per_vertex_assignment = _assign_to_nearest_source_dijkstra(per_source_dists)
     else:
         sources = _fps_euclidean3d(verts, n_patches_hem, first_source)
         per_vertex_assignment = _assign_to_nearest_source_euclidean(verts, sources)
@@ -121,25 +121,35 @@ def _build_edge_graph(verts: np.ndarray, faces: np.ndarray) -> csr_matrix:
     return csr_matrix((weights, (edges[:, 0], edges[:, 1])), shape=(n, n))
 
 
-def _fps_dijkstra(adj: csr_matrix, n_patches: int, first_source: int) -> np.ndarray:
-    """Incremental FPS on a graph: one Dijkstra per new source."""
+def _fps_dijkstra(
+    adj: csr_matrix, n_patches: int, first_source: int
+) -> tuple[np.ndarray, np.ndarray]:
+    """Incremental FPS on a graph: one Dijkstra per new source.
+
+    Returns
+    -------
+    sources : ndarray of shape (n_patches,)
+    per_source_dists : ndarray of shape (n_patches, n_verts)
+        Distance from each source to every vertex. Reused by the
+        assignment step to avoid running a second round of Dijkstras.
+    """
+    n_verts = adj.shape[0]
     sources = np.empty(n_patches, dtype=np.int64)
+    per_source_dists = np.empty((n_patches, n_verts), dtype=np.float64)
     sources[0] = first_source
-    min_dist = dijkstra(adj, indices=first_source, directed=False)
+    per_source_dists[0] = dijkstra(adj, indices=first_source, directed=False)
+    min_dist = per_source_dists[0].copy()
     for k in range(1, n_patches):
         nxt = int(np.argmax(min_dist))
         sources[k] = nxt
-        d_new = dijkstra(adj, indices=nxt, directed=False)
-        min_dist = np.minimum(min_dist, d_new)
-    return sources
+        per_source_dists[k] = dijkstra(adj, indices=nxt, directed=False)
+        min_dist = np.minimum(min_dist, per_source_dists[k])
+    return sources, per_source_dists
 
 
-def _assign_to_nearest_source_dijkstra(
-    adj: csr_matrix, sources: np.ndarray
-) -> np.ndarray:
-    """For each vertex, return the index (within ``sources``) of the closest source."""
-    dists = dijkstra(adj, indices=sources, directed=False)  # (n_sources, n_verts)
-    out: np.ndarray = np.argmin(dists, axis=0).astype(np.int32)
+def _assign_to_nearest_source_dijkstra(per_source_dists: np.ndarray) -> np.ndarray:
+    """For each vertex, return the index of the closest source."""
+    out: np.ndarray = np.argmin(per_source_dists, axis=0).astype(np.int32)
     return out
 
 
