@@ -1,0 +1,163 @@
+"""Per-hemisphere geodesic farthest-point sampling for cortical patch tokenization.
+
+Self-contained module: no imports from any other ``boldcast`` submodule.
+Targeted for upstream contribution to ``nobrainer.layers`` (see
+``boldcast/_upstream/README.md``).
+
+Two metrics are supported:
+
+* ``"geodesic_dijkstra"`` — edge-graph Dijkstra on the mesh, weighted by
+  Euclidean distance between adjacent vertices. Default. Methodologically
+  faithful to the cortical sheet (distances do not jump across sulci).
+  One-time cost on a ``32k_fs_LR`` hemisphere is ~1–3 minutes.
+* ``"euclidean3d"`` — vectorized FPS in 3D Euclidean space on vertex
+  coordinates. Sub-second runtime; documented fallback if the geodesic
+  build is intolerable. Distances jump across sulci.
+"""
+
+from __future__ import annotations
+
+from typing import Literal
+
+import numpy as np
+from scipy.sparse import csr_matrix
+from scipy.sparse.csgraph import dijkstra
+
+__all__ = ["precompute_patches"]
+
+Metric = Literal["geodesic_dijkstra", "euclidean3d"]
+
+
+def precompute_patches(
+    mesh_lh: tuple[np.ndarray, np.ndarray],
+    mesh_rh: tuple[np.ndarray, np.ndarray],
+    cortex_indices_lh: np.ndarray,
+    cortex_indices_rh: np.ndarray,
+    n_patches: int = 1024,
+    seed: int = 0,
+    metric: Metric = "geodesic_dijkstra",
+) -> np.ndarray:
+    """Compute per-grayordinate cortical patch IDs via per-hemisphere FPS.
+
+    FPS runs on the full hemisphere mesh, then patch IDs are subset to the
+    cortex-grayordinate vertices. This keeps geodesic distances accurate
+    across the medial-wall boundary while ensuring the returned array is
+    indexed by grayordinate, ready for ``boldcast.tokenize.patcher.Patcher``.
+
+    Parameters
+    ----------
+    mesh_lh, mesh_rh
+        ``(vertices, faces)`` tuples for each hemisphere. ``vertices`` shape
+        ``(V_h, 3)`` float, ``faces`` shape ``(F_h, 3)`` int.
+    cortex_indices_lh, cortex_indices_rh
+        Mesh-vertex indices that map cortex grayordinates onto the parent
+        mesh (typically excludes medial-wall vertices). Shape
+        ``(V_cortex_h,)`` int.
+    n_patches
+        Total cortical patches across both hemispheres. Must be even
+        (``n_patches // 2`` per hemisphere).
+    seed
+        Seed for the FPS first-source pick.
+    metric
+        ``"geodesic_dijkstra"`` (default) or ``"euclidean3d"``.
+
+    Returns
+    -------
+    patch_assignment : ndarray of shape ``(V_cortex_lh + V_cortex_rh,)`` int32
+        Per-grayordinate patch ID. LH grayordinates get IDs in
+        ``[0, n_patches // 2)``; RH grayordinates get IDs in
+        ``[n_patches // 2, n_patches)``.
+    """
+    if metric not in ("geodesic_dijkstra", "euclidean3d"):
+        raise ValueError(
+            f"Unknown metric {metric!r}; expected 'geodesic_dijkstra' or 'euclidean3d'"
+        )
+    if n_patches % 2 != 0:
+        raise ValueError(f"n_patches must be even, got {n_patches}")
+    n_per_hem = n_patches // 2
+
+    rng = np.random.default_rng(seed)
+    lh_assignment = _fps_one_hemisphere(
+        mesh_lh, cortex_indices_lh, n_per_hem, rng, metric, hemisphere_offset=0
+    )
+    rh_assignment = _fps_one_hemisphere(
+        mesh_rh, cortex_indices_rh, n_per_hem, rng, metric, hemisphere_offset=n_per_hem
+    )
+    return np.concatenate([lh_assignment, rh_assignment]).astype(np.int32)
+
+
+def _fps_one_hemisphere(
+    mesh: tuple[np.ndarray, np.ndarray],
+    cortex_indices: np.ndarray,
+    n_patches_hem: int,
+    rng: np.random.Generator,
+    metric: Metric,
+    hemisphere_offset: int,
+) -> np.ndarray:
+    verts, faces = mesh
+    first_source = int(rng.choice(cortex_indices))
+
+    if metric == "geodesic_dijkstra":
+        adj = _build_edge_graph(verts, faces)
+        sources = _fps_dijkstra(adj, n_patches_hem, first_source)
+        per_vertex_assignment = _assign_to_nearest_source_dijkstra(adj, sources)
+    else:
+        sources = _fps_euclidean3d(verts, n_patches_hem, first_source)
+        per_vertex_assignment = _assign_to_nearest_source_euclidean(verts, sources)
+
+    return per_vertex_assignment[cortex_indices] + hemisphere_offset
+
+
+def _build_edge_graph(verts: np.ndarray, faces: np.ndarray) -> csr_matrix:
+    """Sparse adjacency weighted by Euclidean edge length (symmetric)."""
+    edges = np.concatenate(
+        [faces[:, [0, 1]], faces[:, [1, 2]], faces[:, [2, 0]]], axis=0
+    )
+    edges = np.concatenate([edges, edges[:, ::-1]], axis=0)
+    edges = np.unique(edges, axis=0)
+    weights = np.linalg.norm(verts[edges[:, 0]] - verts[edges[:, 1]], axis=1)
+    n = verts.shape[0]
+    return csr_matrix((weights, (edges[:, 0], edges[:, 1])), shape=(n, n))
+
+
+def _fps_dijkstra(adj: csr_matrix, n_patches: int, first_source: int) -> np.ndarray:
+    """Incremental FPS on a graph: one Dijkstra per new source."""
+    sources = np.empty(n_patches, dtype=np.int64)
+    sources[0] = first_source
+    min_dist = dijkstra(adj, indices=first_source, directed=False)
+    for k in range(1, n_patches):
+        nxt = int(np.argmax(min_dist))
+        sources[k] = nxt
+        d_new = dijkstra(adj, indices=nxt, directed=False)
+        min_dist = np.minimum(min_dist, d_new)
+    return sources
+
+
+def _assign_to_nearest_source_dijkstra(
+    adj: csr_matrix, sources: np.ndarray
+) -> np.ndarray:
+    """For each vertex, return the index (within ``sources``) of the closest source."""
+    dists = dijkstra(adj, indices=sources, directed=False)  # (n_sources, n_verts)
+    return np.argmin(dists, axis=0).astype(np.int32)
+
+
+def _fps_euclidean3d(
+    verts: np.ndarray, n_patches: int, first_source: int
+) -> np.ndarray:
+    sources = np.empty(n_patches, dtype=np.int64)
+    sources[0] = first_source
+    min_dist = np.linalg.norm(verts - verts[first_source], axis=1)
+    for k in range(1, n_patches):
+        nxt = int(np.argmax(min_dist))
+        sources[k] = nxt
+        d_new = np.linalg.norm(verts - verts[nxt], axis=1)
+        min_dist = np.minimum(min_dist, d_new)
+    return sources
+
+
+def _assign_to_nearest_source_euclidean(
+    verts: np.ndarray, sources: np.ndarray
+) -> np.ndarray:
+    diff = verts[None, :, :] - verts[sources][:, None, :]  # (n_sources, n_verts, 3)
+    dists = np.linalg.norm(diff, axis=-1)
+    return np.argmin(dists, axis=0).astype(np.int32)
