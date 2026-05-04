@@ -21,6 +21,9 @@ configs/local.yaml
 # SLURM logs
 logs/
 
+# Git worktrees (used for isolated feature-branch workspaces)
+.worktrees/
+
 # Profiling
 *.prof
 
