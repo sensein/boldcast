@@ -11,6 +11,10 @@ dtseries, and writes:
   inflated cortical surface.
 * ``results/day1_validate.json`` — patch-size mean/std, tokenizer wall-time,
   round-trip residual.
+
+FPS runs over the chosen surface variant (default midthickness, which sits
+between pial and white and is the conventional choice for distance
+computations).
 """
 
 from __future__ import annotations
@@ -44,6 +48,18 @@ def main() -> int:
         choices=["geodesic_dijkstra", "euclidean3d"],
         help="FPS metric (overrides cache filename if it doesn't match the cache).",
     )
+    p.add_argument(
+        "--surface-variant",
+        type=str,
+        default="midthickness",
+        choices=["midthickness", "pial", "white", "inflated"],
+        dest="surface_variant",
+        help=(
+            "Surface variant used for geodesic FPS. Default is midthickness, which "
+            "sits between pial and white and is the conventional choice for distance "
+            "computations."
+        ),
+    )
     args = p.parse_args()
 
     cfg = OmegaConf.load(args.config)
@@ -54,10 +70,10 @@ def main() -> int:
     )
     surface_dir = cfg.data.surface_dir_template.format(subject=args.subject)
     lh_mesh = (
-        f"{surface_dir}/{args.subject}.L.midthickness_MSMAll.32k_fs_LR.surf.gii"
+        f"{surface_dir}/{args.subject}.L.{args.surface_variant}_MSMAll.32k_fs_LR.surf.gii"
     )
     rh_mesh = (
-        f"{surface_dir}/{args.subject}.R.midthickness_MSMAll.32k_fs_LR.surf.gii"
+        f"{surface_dir}/{args.subject}.R.{args.surface_variant}_MSMAll.32k_fs_LR.surf.gii"
     )
 
     print(f"[day1] loading dtseries: {dtseries_path}")
