@@ -5,9 +5,9 @@ Synthetic-only — Claude does not load HCP data files (DUA).
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 
-import nibabel as nib
 import numpy as np
 import trimesh
 from boldcast._upstream.cifti_io import (
@@ -47,23 +47,15 @@ def test_save_dtseries_roundtrip(
     np.testing.assert_array_equal(data_in, data_out)
 
 
-def test_load_gifti_surface_returns_verts_faces(tmp_path: Path) -> None:
+def test_load_gifti_surface_returns_verts_faces(
+    synthetic_gifti_path_factory: Callable[[tuple[np.ndarray, np.ndarray], str], Path],
+) -> None:
     m = trimesh.creation.icosphere(subdivisions=2)
-    gii = nib.gifti.GiftiImage()
-    gii.add_gifti_data_array(
-        nib.gifti.GiftiDataArray(
-            m.vertices.astype(np.float32), intent="NIFTI_INTENT_POINTSET"
-        )
-    )
-    gii.add_gifti_data_array(
-        nib.gifti.GiftiDataArray(
-            m.faces.astype(np.int32), intent="NIFTI_INTENT_TRIANGLE"
-        )
-    )
-    out = tmp_path / "test.surf.gii"
-    nib.save(gii, str(out))
+    verts_in = m.vertices.astype(np.float32)
+    faces_in = m.faces.astype(np.int32)
+    gii_path = synthetic_gifti_path_factory((verts_in, faces_in), "test")
 
-    verts, faces = load_gifti_surface(str(out))
+    verts, faces = load_gifti_surface(str(gii_path))
     assert verts.shape == (len(m.vertices), 3)
     assert faces.shape == (len(m.faces), 3)
     np.testing.assert_allclose(verts, m.vertices)

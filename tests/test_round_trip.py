@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 
-import nibabel as nib
 import numpy as np
 import torch
 from boldcast.io.cifti import cortex_grayordinate_indices, load_dtseries
@@ -12,42 +12,23 @@ from boldcast.tokenize.geodesic import build_or_load_patches
 from boldcast.tokenize.patcher import Patcher
 
 
-def _save_synthetic_gifti(
-    tmp_path: Path, mesh: tuple[np.ndarray, np.ndarray], name: str
-) -> str:
-    verts, faces = mesh
-    gii = nib.gifti.GiftiImage()
-    gii.add_gifti_data_array(
-        nib.gifti.GiftiDataArray(
-            verts.astype(np.float32), intent="NIFTI_INTENT_POINTSET"
-        )
-    )
-    gii.add_gifti_data_array(
-        nib.gifti.GiftiDataArray(
-            faces.astype(np.int32), intent="NIFTI_INTENT_TRIANGLE"
-        )
-    )
-    out = tmp_path / f"{name}.surf.gii"
-    nib.save(gii, str(out))
-    return str(out)
-
-
 def test_patch_mean_idempotency_on_synthetic_data(
     synthetic_dtseries: Path,
     synthetic_mesh_lh: tuple[np.ndarray, np.ndarray],
     synthetic_mesh_rh: tuple[np.ndarray, np.ndarray],
+    synthetic_gifti_path_factory: Callable[[tuple[np.ndarray, np.ndarray], str], Path],
     tmp_path: Path,
 ) -> None:
-    lh_path = _save_synthetic_gifti(tmp_path, synthetic_mesh_lh, "lh")
-    rh_path = _save_synthetic_gifti(tmp_path, synthetic_mesh_rh, "rh")
+    lh_path = synthetic_gifti_path_factory(synthetic_mesh_lh, "lh")
+    rh_path = synthetic_gifti_path_factory(synthetic_mesh_rh, "rh")
 
     data, header = load_dtseries(str(synthetic_dtseries))
     cortex_lh, cortex_rh = cortex_grayordinate_indices(header)
     n_patches = 8
 
     assignment = build_or_load_patches(
-        mesh_lh_path=lh_path,
-        mesh_rh_path=rh_path,
+        mesh_lh_path=str(lh_path),
+        mesh_rh_path=str(rh_path),
         cortex_indices_lh=cortex_lh,
         cortex_indices_rh=cortex_rh,
         cache_path=str(tmp_path / "patches.npz"),

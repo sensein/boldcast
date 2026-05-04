@@ -5,6 +5,7 @@ Synthetic-only by design: Claude does not load HCP data files (DUA).
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 
 import nibabel as nib
@@ -63,3 +64,33 @@ def synthetic_mesh_rh() -> tuple[np.ndarray, np.ndarray]:
     m = trimesh.creation.icosphere(subdivisions=2)
     verts = m.vertices.astype(np.float32) + np.array([2.0, 0.0, 0.0], dtype=np.float32)
     return verts, m.faces.astype(np.int32)
+
+
+@pytest.fixture
+def synthetic_gifti_path_factory(
+    tmp_path: Path,
+) -> Callable[[tuple[np.ndarray, np.ndarray], str], Path]:
+    """Factory: given a ``(verts, faces)`` mesh and a name, save a GIFTI surface file.
+
+    Returns the saved file's ``Path``.  Built only from ``nibabel`` and
+    ``numpy``, so the factory is portable for upstream test suites.
+    """
+
+    def _make(mesh: tuple[np.ndarray, np.ndarray], name: str) -> Path:
+        verts, faces = mesh
+        gii = nib.gifti.GiftiImage()
+        gii.add_gifti_data_array(
+            nib.gifti.GiftiDataArray(
+                verts.astype(np.float32), intent="NIFTI_INTENT_POINTSET"
+            )
+        )
+        gii.add_gifti_data_array(
+            nib.gifti.GiftiDataArray(
+                faces.astype(np.int32), intent="NIFTI_INTENT_TRIANGLE"
+            )
+        )
+        out = tmp_path / f"{name}.surf.gii"
+        nib.save(gii, str(out))
+        return out
+
+    return _make
