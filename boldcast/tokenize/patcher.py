@@ -51,7 +51,17 @@ class Patcher(torch.nn.Module):
         self.n_patches = n_patches
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """Mean-pool ``x`` of shape ``(T, V_cortex)`` to ``(T, n_patches)``."""
+        """Mean-pool ``x`` of shape ``(T, V_cortex)`` to ``(T, n_patches)``.
+
+        Notes
+        -----
+        Operates on a single run at a time.  Batched inputs of shape
+        ``(B, T, V)`` are intentionally rejected — ``Patcher`` is meant to
+        run inside the dataset's ``__getitem__`` (one call per run) and cache
+        the result, so the model's forward pass never sees raw vertex BOLD.
+        Callers with batched data should loop over the batch dim and call
+        ``forward`` once per item.
+        """
         # Buffers are exposed as Tensor at runtime; register_buffer's typing
         # is loose, so cast for mypy strict.
         assignment = cast(torch.Tensor, self.patch_assignment)
