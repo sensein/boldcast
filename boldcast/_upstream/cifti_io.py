@@ -21,6 +21,7 @@ from numpy.typing import NDArray
 
 __all__ = [
     "cortex_grayordinate_indices",
+    "extract_cortex_grayordinates",
     "load_dtseries",
     "load_gifti_surface",
     "save_dtseries",
@@ -121,6 +122,39 @@ def cortex_grayordinate_indices(
         if bm["name"] == "CIFTI_STRUCTURE_CORTEX_RIGHT"
     )
     return lh["vertex"], rh["vertex"]
+
+
+def extract_cortex_grayordinates(
+    data: NDArray[np.floating[Any]], header: dict[str, Any]
+) -> NDArray[np.float32]:
+    """Return the LH+RH cortex slice of a CIFTI dtseries data array.
+
+    Parameters
+    ----------
+    data : ndarray of shape ``(T, V_total)``
+        Full CIFTI dtseries (cortex + subcortex/cerebellum grayordinates).
+    header : dict
+        As returned by :func:`load_dtseries`.
+
+    Returns
+    -------
+    cortex : ndarray of shape ``(T, V_cortex)`` float32
+        Concatenation of the LH and RH cortex grayordinate columns. For
+        the standard HCP grayordinate space, ``V_cortex = 59412``.
+    """
+    lh = next(
+        bm
+        for bm in header["brain_models"]
+        if bm["name"] == "CIFTI_STRUCTURE_CORTEX_LEFT"
+    )
+    rh = next(
+        bm
+        for bm in header["brain_models"]
+        if bm["name"] == "CIFTI_STRUCTURE_CORTEX_RIGHT"
+    )
+    return np.concatenate(
+        [data[:, lh["slice"]], data[:, rh["slice"]]], axis=1
+    ).astype(np.float32)
 
 
 def load_gifti_surface(path: str) -> tuple[NDArray[np.float32], NDArray[np.int32]]:

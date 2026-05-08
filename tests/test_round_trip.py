@@ -7,7 +7,11 @@ from pathlib import Path
 
 import numpy as np
 import torch
-from boldcast.io.cifti import cortex_grayordinate_indices, load_dtseries
+from boldcast.io.cifti import (
+    cortex_grayordinate_indices,
+    extract_cortex_grayordinates,
+    load_dtseries,
+)
 from boldcast.tokenize.geodesic import build_or_load_patches
 from boldcast.tokenize.patcher import Patcher
 
@@ -24,6 +28,7 @@ def test_patch_mean_idempotency_on_synthetic_data(
 
     data, header = load_dtseries(str(synthetic_dtseries))
     cortex_lh, cortex_rh = cortex_grayordinate_indices(header)
+    cortex_data = extract_cortex_grayordinates(data, header)
     n_patches = 8
 
     assignment = build_or_load_patches(
@@ -38,7 +43,7 @@ def test_patch_mean_idempotency_on_synthetic_data(
     )
     patcher = Patcher(torch.from_numpy(assignment), n_patches=n_patches)
 
-    x = torch.from_numpy(data)
+    x = torch.from_numpy(cortex_data)
     patch_means_1 = patcher.forward(x)  # (T, P)
 
     # De-patch: scatter patch means back to grayordinates by patch ID.

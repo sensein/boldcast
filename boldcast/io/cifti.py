@@ -7,6 +7,7 @@ module lands in ``nobrainer.io``, this file's imports flip to
 
 from boldcast._upstream.cifti_io import (
     cortex_grayordinate_indices,
+    extract_cortex_grayordinates,
     load_dtseries,
     load_gifti_surface,
     save_dtseries,
@@ -14,6 +15,7 @@ from boldcast._upstream.cifti_io import (
 
 __all__ = [
     "cortex_grayordinate_indices",
+    "extract_cortex_grayordinates",
     "load_dtseries",
     "load_gifti_surface",
     "save_dtseries",

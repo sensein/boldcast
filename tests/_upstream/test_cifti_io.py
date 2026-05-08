@@ -12,6 +12,7 @@ import numpy as np
 import trimesh
 from boldcast._upstream.cifti_io import (
     cortex_grayordinate_indices,
+    extract_cortex_grayordinates,
     load_dtseries,
     load_gifti_surface,
     save_dtseries,
@@ -45,6 +46,19 @@ def test_save_dtseries_roundtrip(
     save_dtseries(data_in, template=str(synthetic_dtseries), out=str(out))
     data_out, _ = load_dtseries(str(out))
     np.testing.assert_array_equal(data_in, data_out)
+
+
+def test_extract_cortex_grayordinates_shape_and_values(
+    synthetic_dtseries: Path,
+) -> None:
+    """The synthetic fixture is cortex-only, so extract is idempotent over data."""
+    data, header = load_dtseries(str(synthetic_dtseries))
+    cortex = extract_cortex_grayordinates(data, header)
+    # Synthetic fixture: 50 LH + 50 RH = 100 cortex grayordinates, no subcortex.
+    assert cortex.shape == (data.shape[0], 100)
+    assert cortex.dtype == np.float32
+    # On cortex-only data, extract should reproduce the full data.
+    np.testing.assert_array_equal(cortex, data)
 
 
 def test_load_gifti_surface_returns_verts_faces(

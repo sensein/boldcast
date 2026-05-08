@@ -26,7 +26,11 @@ from pathlib import Path
 
 import numpy as np
 import torch
-from boldcast.io.cifti import cortex_grayordinate_indices, load_dtseries
+from boldcast.io.cifti import (
+    cortex_grayordinate_indices,
+    extract_cortex_grayordinates,
+    load_dtseries,
+)
 from boldcast.tokenize.geodesic import build_or_load_patches
 from boldcast.tokenize.patcher import Patcher
 from omegaconf import OmegaConf
@@ -93,9 +97,11 @@ def main() -> int:
     print(f"[day1] loading dtseries: {dtseries_path}")
     data, header = load_dtseries(dtseries_path)
     cortex_lh, cortex_rh = cortex_grayordinate_indices(header)
+    cortex_data = extract_cortex_grayordinates(data, header)
     print(
-        f"[day1]   shape={data.shape}, "
-        f"n_lh_cortex={len(cortex_lh)}, n_rh_cortex={len(cortex_rh)}"
+        f"[day1]   dtseries shape={data.shape} (full grayordinates); "
+        f"cortex shape={cortex_data.shape} "
+        f"(n_lh_cortex={len(cortex_lh)}, n_rh_cortex={len(cortex_rh)})"
     )
 
     print(f"[day1] building/loading patches → {cfg.tokenize.patch_cache}")
@@ -122,7 +128,7 @@ def main() -> int:
     patcher = Patcher(
         torch.from_numpy(assignment), n_patches=cfg.tokenize.n_patches_cortex
     )
-    x = torch.from_numpy(data)
+    x = torch.from_numpy(cortex_data)
 
     t0 = time.perf_counter()
     patch_means = patcher.forward(x)
