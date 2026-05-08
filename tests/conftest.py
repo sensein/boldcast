@@ -101,9 +101,10 @@ def synthetic_hcp_layout(tmp_path: Path) -> tuple[Path, list[str], list[str]]:
     """Two synthetic subjects × two synthetic runs in HCP-like directory layout.
 
     Returns ``(hcp_root, subjects, runs)`` where ``hcp_root`` is the parent
-    directory holding ``{subject}/MNINonLinear/Results/{run}/{run}_Atlas_MSMAll_hp2000_clean.dtseries.nii``
-    files, and ``subjects`` / ``runs`` are the string IDs to be plugged into
-    a config-style ``dtseries_pattern``.
+    directory holding the standard HCP path
+    ``{subject}/MNINonLinear/Results/{run}/{run}_Atlas_MSMAll_hp2000_clean.dtseries.nii``,
+    and ``subjects`` / ``runs`` are the string IDs to be plugged into a
+    config-style ``dtseries_pattern``.
 
     Each synthetic dtseries has T=20 TRs and V=100 grayordinates (50 LH + 50 RH
     cortex), matching the schema of ``synthetic_dtseries`` so the Day-1 patcher
