@@ -154,6 +154,45 @@ def test_geodesic_and_euclidean_disagree_on_nonconvex_mesh() -> None:
     )
 
 
+@pytest.mark.parametrize("metric", ["geodesic_dijkstra", "euclidean3d"])
+def test_no_empty_patches_when_cortex_excludes_some_mesh_vertices(
+    synthetic_mesh_lh: tuple[np.ndarray, np.ndarray],
+    synthetic_mesh_rh: tuple[np.ndarray, np.ndarray],
+    metric: str,
+) -> None:
+    """Mimics the HCP medial wall: cortex_indices is a strict subset of mesh vertices.
+
+    Without restricting FPS source picks to cortex_indices, sources can land on
+    excluded ("medial wall") vertices and produce empty patches after subsetting
+    to grayordinates. This test would have caught the empty-patch bug surfaced
+    by the Day-1 real-HCP validation on subject 115825.
+    """
+    n_lh = synthetic_mesh_lh[0].shape[0]
+    n_rh = synthetic_mesh_rh[0].shape[0]
+    # Drop ~20% of mesh vertices from cortex_indices to simulate a medial wall.
+    rng = np.random.default_rng(0)
+    medial_wall_lh = rng.choice(n_lh, size=n_lh // 5, replace=False)
+    medial_wall_rh = rng.choice(n_rh, size=n_rh // 5, replace=False)
+    cortex_lh = np.array(sorted(set(range(n_lh)) - set(medial_wall_lh.tolist())))
+    cortex_rh = np.array(sorted(set(range(n_rh)) - set(medial_wall_rh.tolist())))
+
+    n_patches = 8
+    assignment = precompute_patches(
+        mesh_lh=synthetic_mesh_lh,
+        mesh_rh=synthetic_mesh_rh,
+        cortex_indices_lh=cortex_lh,
+        cortex_indices_rh=cortex_rh,
+        n_patches=n_patches,
+        seed=0,
+        metric=metric,
+    )
+    counts = np.bincount(assignment, minlength=n_patches)
+    assert int(counts.min()) > 0, (
+        f"empty patch(es) when cortex_indices excludes some mesh vertices "
+        f"({metric}): counts={counts.tolist()}"
+    )
+
+
 def test_disconnected_mesh_raises_for_geodesic_dijkstra() -> None:
     """Two separate icospheres with no shared vertices → geodesic FPS must raise."""
     import trimesh

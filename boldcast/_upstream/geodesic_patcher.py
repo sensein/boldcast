@@ -117,10 +117,14 @@ def _fps_one_hemisphere(
                 "Check that the input mesh is a valid closed surface "
                 "(e.g., 32k_fs_LR) with no isolated sub-meshes."
             )
-        sources, per_source_dists = _fps_dijkstra(adj, n_patches_hem, first_source)
+        sources, per_source_dists = _fps_dijkstra(
+            adj, n_patches_hem, first_source, cortex_indices
+        )
         per_vertex_assignment = _assign_to_nearest_source_dijkstra(per_source_dists)
     else:
-        sources = _fps_euclidean3d(verts, n_patches_hem, first_source)
+        sources = _fps_euclidean3d(
+            verts, n_patches_hem, first_source, cortex_indices
+        )
         per_vertex_assignment = _assign_to_nearest_source_euclidean(verts, sources)
 
     result: np.ndarray = per_vertex_assignment[cortex_indices] + hemisphere_offset
@@ -140,9 +144,21 @@ def _build_edge_graph(verts: np.ndarray, faces: np.ndarray) -> csr_matrix:
 
 
 def _fps_dijkstra(
-    adj: csr_matrix, n_patches: int, first_source: int
+    adj: csr_matrix,
+    n_patches: int,
+    first_source: int,
+    candidate_indices: np.ndarray,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Incremental FPS on a graph: one Dijkstra per new source.
+
+    Sources are picked only from ``candidate_indices`` (the cortex
+    grayordinate vertices). Picking sources from outside that set —
+    e.g., medial-wall vertices in HCP ``32k_fs_LR`` — produces patches
+    whose cortex membership can be empty after grayordinate subsetting,
+    because the source's nearest cortex neighbours may pick a different,
+    geometrically closer source. Restricting source selection to
+    ``candidate_indices`` guarantees every patch contains at least its
+    own source vertex (a cortex grayordinate).
 
     Returns
     -------
@@ -158,7 +174,8 @@ def _fps_dijkstra(
     per_source_dists[0] = dijkstra(adj, indices=first_source, directed=False)
     min_dist = per_source_dists[0].copy()
     for k in range(1, n_patches):
-        nxt = int(np.argmax(min_dist))
+        # argmax over candidate (cortex) vertices only.
+        nxt = int(candidate_indices[np.argmax(min_dist[candidate_indices])])
         sources[k] = nxt
         per_source_dists[k] = dijkstra(adj, indices=nxt, directed=False)
         min_dist = np.minimum(min_dist, per_source_dists[k])
@@ -172,13 +189,20 @@ def _assign_to_nearest_source_dijkstra(per_source_dists: np.ndarray) -> np.ndarr
 
 
 def _fps_euclidean3d(
-    verts: np.ndarray, n_patches: int, first_source: int
+    verts: np.ndarray,
+    n_patches: int,
+    first_source: int,
+    candidate_indices: np.ndarray,
 ) -> np.ndarray:
+    """Vectorized 3D-Euclidean FPS, restricted to ``candidate_indices`` for source picks.
+
+    See ``_fps_dijkstra`` for why source picks must be cortex-only.
+    """
     sources = np.empty(n_patches, dtype=np.int64)
     sources[0] = first_source
     min_dist = np.linalg.norm(verts - verts[first_source], axis=1)
     for k in range(1, n_patches):
-        nxt = int(np.argmax(min_dist))
+        nxt = int(candidate_indices[np.argmax(min_dist[candidate_indices])])
         sources[k] = nxt
         d_new = np.linalg.norm(verts - verts[nxt], axis=1)
         min_dist = np.minimum(min_dist, d_new)
