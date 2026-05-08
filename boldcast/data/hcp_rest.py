@@ -110,6 +110,10 @@ class HCPRestingDataset(Dataset[dict[str, Any]]):
         self.standardize_method = standardize_method
         self._assignment_sha = _short_sha(self.patch_assignment.tobytes())
         self._windows = self._enumerate_windows()
+        # Per-(subject, run) token cache populated lazily on __getitem__. Avoids
+        # rehashing the full dtseries file (~600 MB) and reloading the on-disk
+        # cache on every window fetch — both would tank Day-5 DDP throughput.
+        self._tokens_cache: dict[tuple[str, str], NDArray[np.float32]] = {}
 
     def _enumerate_windows(self) -> list[tuple[int, int, int]]:
         """Build the (subject_idx, run_idx, window_start) index list.
@@ -141,7 +145,10 @@ class HCPRestingDataset(Dataset[dict[str, Any]]):
         s_idx, r_idx, start = self._windows[idx]
         subject = self.subjects[s_idx]
         run = self.runs[r_idx]
-        tokens_full = self._load_or_build_tokens(subject, run)
+        tokens_full = self._tokens_cache.get((subject, run))
+        if tokens_full is None:
+            tokens_full = self._load_or_build_tokens(subject, run)
+            self._tokens_cache[(subject, run)] = tokens_full
         end = start + self.window_size
         return {
             "tokens": torch.from_numpy(tokens_full[start:end]),
@@ -152,20 +159,22 @@ class HCPRestingDataset(Dataset[dict[str, Any]]):
 
     def _load_or_build_tokens(self, subject: str, run: str) -> NDArray[np.float32]:
         """Return ``(T_full, P) float32`` for one (subject, run), reading or
-        writing the cache as needed. Cache mismatch raises."""
+        writing the on-disk cache as needed. Called at most once per
+        (subject, run) per Dataset instance — the in-memory ``_tokens_cache``
+        in ``__getitem__`` short-circuits subsequent calls. Cache mismatch
+        raises ``ValueError``.
+        """
         dtseries_path = self.dtseries_pattern.format(subject=subject, run=run)
         cache_path = self.cache_dir / f"{subject}_{run}.npz"
 
-        dtseries_sha = _short_sha(Path(dtseries_path).read_bytes())
-        expected_meta: dict[str, int | str] = {
-            "dtseries_sha": dtseries_sha,
-            "assignment_sha": self._assignment_sha,
-            "n_patches": self.n_patches,
-            "standardize_method": self.standardize_method,
-        }
-
         if cache_path.exists():
             loaded = np.load(cache_path, allow_pickle=False)
+            expected_meta: dict[str, int | str] = {
+                "dtseries_sha": _short_sha(Path(dtseries_path).read_bytes()),
+                "assignment_sha": self._assignment_sha,
+                "n_patches": self.n_patches,
+                "standardize_method": self.standardize_method,
+            }
             cached_meta: dict[str, int | str] = {
                 k: loaded[k].item() for k in expected_meta if k in loaded
             }
@@ -188,13 +197,19 @@ class HCPRestingDataset(Dataset[dict[str, Any]]):
             n_patches=self.n_patches,
         )
         tokens_t = patcher.forward(torch.from_numpy(cortex_std))
-        tokens_arr: NDArray[np.float32] = tokens_t.numpy().astype(np.float32)
+        tokens_arr: NDArray[np.float32] = tokens_t.numpy()
 
+        build_meta: dict[str, int | str] = {
+            "dtseries_sha": _short_sha(Path(dtseries_path).read_bytes()),
+            "assignment_sha": self._assignment_sha,
+            "n_patches": self.n_patches,
+            "standardize_method": self.standardize_method,
+        }
         cache_path.parent.mkdir(parents=True, exist_ok=True)
         np.savez_compressed(
             str(cache_path),
             tokens=tokens_arr,
-            **{k: np.asarray(v) for k, v in expected_meta.items()},  # type: ignore[arg-type]
+            **{k: np.asarray(v) for k, v in build_meta.items()},  # type: ignore[arg-type]
         )
         return tokens_arr
 
@@ -239,6 +254,12 @@ class HCPRestingDataset(Dataset[dict[str, Any]]):
 
         train_subjects = _read_subject_list(str(cfg.data.subjects_train_file))
         heldout_subjects = _read_subject_list(str(cfg.data.subjects_heldout_file))
+        if not train_subjects and not heldout_subjects:
+            raise ValueError(
+                f"both {cfg.data.subjects_train_file!r} and "
+                f"{cfg.data.subjects_heldout_file!r} are empty — at least one "
+                "split must contain subject IDs"
+            )
         if split == "train":
             subjects = train_subjects
             offset = 0

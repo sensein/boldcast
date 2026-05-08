@@ -216,6 +216,98 @@ def test_from_config_train_split(
     assert torch.isfinite(sample["tokens"]).all()
 
 
+def test_from_config_heldout_split_uses_disjoint_subject_ids(
+    synthetic_hcp_layout: tuple[Path, list[str], list[str]], tmp_path: Path
+) -> None:
+    """Heldout split must offset subject_ids by len(train_subjects) so the
+    model never sees the same int across splits. This is operationally
+    load-bearing — Day-7 fingerprinting silently corrupts on ID collision."""
+    import yaml
+
+    hcp_root, subjects, runs = synthetic_hcp_layout
+    # Put one synthetic subject in train, the other in heldout.
+    train_file = tmp_path / "subjects_train.txt"
+    train_file.write_text(subjects[0] + "\n")
+    heldout_file = tmp_path / "subjects_heldout.txt"
+    heldout_file.write_text(subjects[1] + "\n")
+
+    n_p = 4
+    patch_cache = tmp_path / "patches.npz"
+    np.savez(
+        str(patch_cache),
+        assignment=_trivial_assignment(n_v=100, n_p=n_p),
+        n_patches=np.asarray(n_p),
+        seed=np.asarray(0),
+        metric=np.asarray("euclidean3d"),
+        lloyd_iters=np.asarray(0),
+        n_lh_cortex=np.asarray(50),
+        n_rh_cortex=np.asarray(50),
+    )
+    cfg = {
+        "data": {
+            "dtseries_pattern": (
+                str(hcp_root)
+                + "/{subject}/MNINonLinear/Results/{run}/"
+                + "{run}_Atlas_MSMAll_hp2000_clean.dtseries.nii"
+            ),
+            "subjects_train_file": str(train_file),
+            "subjects_heldout_file": str(heldout_file),
+            "runs": runs,
+        },
+        "tokenize": {
+            "n_patches_cortex": n_p,
+            "patch_cache": str(patch_cache),
+            "cache_dir": str(tmp_path / "tokens_cache"),
+            "standardize": "run_wise",
+        },
+        "window": {"size": 10, "stride": 5},
+    }
+    cfg_path = tmp_path / "config.yaml"
+    cfg_path.write_text(yaml.safe_dump(cfg))
+
+    ds_train = HCPRestingDataset.from_config(str(cfg_path), split="train")
+    ds_heldout = HCPRestingDataset.from_config(str(cfg_path), split="heldout")
+
+    train_ids = {ds_train[i]["subject_id"] for i in range(len(ds_train))}
+    heldout_ids = {ds_heldout[i]["subject_id"] for i in range(len(ds_heldout))}
+    assert train_ids == {0}, train_ids  # 1 train subject at offset 0
+    assert heldout_ids == {1}, heldout_ids  # 1 heldout subject at offset 1
+    assert train_ids.isdisjoint(heldout_ids), (
+        f"subject_id collision between train ({train_ids}) and heldout "
+        f"({heldout_ids}) — would silently corrupt fingerprinting metrics"
+    )
+
+
+def test_from_config_raises_on_both_splits_empty(tmp_path: Path) -> None:
+    """If both subject lists are empty, from_config must raise with a clear
+    message rather than IndexError-ing in the cache-build branch."""
+    import yaml
+
+    train_file = tmp_path / "subjects_train.txt"
+    train_file.write_text("")
+    heldout_file = tmp_path / "subjects_heldout.txt"
+    heldout_file.write_text("")
+    cfg = {
+        "data": {
+            "dtseries_pattern": "/nonexistent/{subject}/{run}",
+            "subjects_train_file": str(train_file),
+            "subjects_heldout_file": str(heldout_file),
+            "runs": ["fake_run"],
+        },
+        "tokenize": {
+            "n_patches_cortex": 4,
+            "patch_cache": str(tmp_path / "patches.npz"),
+            "cache_dir": str(tmp_path / "tokens_cache"),
+            "standardize": "run_wise",
+        },
+        "window": {"size": 10, "stride": 5},
+    }
+    cfg_path = tmp_path / "config.yaml"
+    cfg_path.write_text(yaml.safe_dump(cfg))
+    with pytest.raises(ValueError, match="at least one split must contain"):
+        HCPRestingDataset.from_config(str(cfg_path), split="train")
+
+
 def test_iteration_order_is_deterministic_for_fixed_split(
     synthetic_hcp_layout: tuple[Path, list[str], list[str]], tmp_path: Path
 ) -> None:
