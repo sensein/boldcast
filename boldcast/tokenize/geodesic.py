@@ -2,12 +2,16 @@
 
 Wraps :func:`boldcast._upstream.geodesic_patcher.precompute_patches` with a
 versioned cache keyed on ``(n_patches, seed, metric, lloyd_iters,
-hemisphere-cortex sizes)``. Metadata mismatch raises rather than silently
-rebuilding so cache invalidation is always explicit (delete the file).
+hemisphere-cortex sizes, mesh-file SHAs)``. Mesh SHAs guard against silent
+stale-cache reuse when the surface variant (midthickness / pial / inflated)
+or MSM registration changes under a fixed cache path. Metadata mismatch
+raises rather than silently rebuilding so cache invalidation is always
+explicit (delete the file).
 """
 
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 from typing import Literal
 
@@ -19,6 +23,13 @@ from boldcast._upstream.geodesic_patcher import precompute_patches
 __all__ = ["build_or_load_patches"]
 
 Metric = Literal["geodesic_dijkstra", "euclidean3d"]
+
+
+def _mesh_file_sha(path: str) -> str:
+    """Short SHA-256 of mesh file bytes, used to fingerprint the surface
+    in the cache metadata. Catches surface-variant or MSM-registration
+    swaps that would otherwise silently reuse stale patches."""
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()[:16]
 
 
 def build_or_load_patches(
@@ -52,13 +63,15 @@ def build_or_load_patches(
     patch_assignment : ndarray of shape ``(V_cortex_lh + V_cortex_rh,)`` int32
     """
     cache = Path(cache_path)
-    metadata = {
+    metadata: dict[str, int | str] = {
         "n_patches": int(n_patches),
         "seed": int(seed),
         "metric": metric,
         "lloyd_iters": int(lloyd_iters),
         "n_lh_cortex": int(cortex_indices_lh.shape[0]),
         "n_rh_cortex": int(cortex_indices_rh.shape[0]),
+        "mesh_lh_sha": _mesh_file_sha(mesh_lh_path),
+        "mesh_rh_sha": _mesh_file_sha(mesh_rh_path),
     }
     if cache.exists():
         loaded = np.load(cache, allow_pickle=False)
