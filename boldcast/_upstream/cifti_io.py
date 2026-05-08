@@ -80,13 +80,24 @@ def save_dtseries(data: NDArray[np.floating[Any]], template: str, out: str) -> N
     Parameters
     ----------
     data : ndarray of shape ``(T, V)``
-        Must match the template's series and brain-model axes.
+        Must match the template's series and brain-model axes. Raises
+        ``ValueError`` if the shape does not match — nibabel will also
+        catch this downstream, but we check early to suppress its
+        ``UserWarning`` and produce a clearer error from this wrapper.
     template : str
         Path to a CIFTI file whose header to copy.
     out : str
         Output path (``*.dtseries.nii``).
     """
     template_img = nib.load(template)  # type: ignore[attr-defined]
+    series_axis = template_img.header.get_axis(0)  # type: ignore[attr-defined]
+    brain_axis = template_img.header.get_axis(1)  # type: ignore[attr-defined]
+    expected = (int(series_axis.size), int(brain_axis.size))
+    if data.shape != expected:
+        raise ValueError(
+            f"data shape {tuple(data.shape)} does not match template axes "
+            f"{expected} (template={template!r})"
+        )
     img = nib.cifti2.Cifti2Image(  # type: ignore[attr-defined,no-untyped-call]
         np.asarray(data, dtype=np.float32), template_img.header
     )
