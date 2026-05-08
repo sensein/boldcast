@@ -7,8 +7,16 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+import torch
 from numpy.typing import NDArray
 from torch.utils.data import Dataset
+
+from boldcast.data.transforms import standardize_run
+from boldcast.io.cifti import (
+    extract_cortex_grayordinates,
+    load_dtseries,
+)
+from boldcast.tokenize.patcher import Patcher
 
 __all__ = ["HCPRestingDataset"]
 
@@ -120,4 +128,62 @@ class HCPRestingDataset(Dataset[dict[str, Any]]):
         return len(self._windows)
 
     def __getitem__(self, idx: int) -> dict[str, Any]:
-        raise NotImplementedError("Task 4 wires this up.")
+        s_idx, r_idx, start = self._windows[idx]
+        subject = self.subjects[s_idx]
+        run = self.runs[r_idx]
+        tokens_full = self._load_or_build_tokens(subject, run)
+        end = start + self.window_size
+        return {
+            "tokens": torch.from_numpy(tokens_full[start:end]),
+            "subject_id": s_idx + self.subject_id_offset,
+            "run_id": r_idx,
+            "window_start": int(start),
+        }
+
+    def _load_or_build_tokens(self, subject: str, run: str) -> NDArray[np.float32]:
+        """Return ``(T_full, P) float32`` for one (subject, run), reading or
+        writing the cache as needed. Cache mismatch raises."""
+        dtseries_path = self.dtseries_pattern.format(subject=subject, run=run)
+        cache_path = self.cache_dir / f"{subject}_{run}.npz"
+
+        dtseries_sha = _short_sha(Path(dtseries_path).read_bytes())
+        expected_meta: dict[str, int | str] = {
+            "dtseries_sha": dtseries_sha,
+            "assignment_sha": self._assignment_sha,
+            "n_patches": self.n_patches,
+            "standardize_method": self.standardize_method,
+        }
+
+        if cache_path.exists():
+            loaded = np.load(cache_path, allow_pickle=False)
+            cached_meta: dict[str, int | str] = {
+                k: loaded[k].item() for k in expected_meta if k in loaded
+            }
+            if cached_meta != expected_meta:
+                raise ValueError(
+                    f"cache metadata mismatch at {cache_path}: "
+                    f"requested {expected_meta}, cached {cached_meta}. "
+                    "Delete the cache file to rebuild."
+                )
+            tokens: NDArray[np.float32] = loaded["tokens"]
+            return tokens
+
+        # Build path: load → cortex → standardize → patcher → cache.
+        data, header = load_dtseries(dtseries_path)
+        cortex = extract_cortex_grayordinates(data, header)
+        cortex_std = standardize_run(cortex)
+
+        patcher = Patcher(
+            torch.from_numpy(self.patch_assignment),
+            n_patches=self.n_patches,
+        )
+        tokens_t = patcher.forward(torch.from_numpy(cortex_std))
+        tokens_arr: NDArray[np.float32] = tokens_t.numpy().astype(np.float32)
+
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        np.savez_compressed(
+            str(cache_path),
+            tokens=tokens_arr,
+            **{k: np.asarray(v) for k, v in expected_meta.items()},  # type: ignore[arg-type]
+        )
+        return tokens_arr
