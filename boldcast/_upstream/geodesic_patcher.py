@@ -137,17 +137,21 @@ def _fps_one_hemisphere(
             adj, n_patches_hem, first_source, cortex_indices
         )
         if lloyd_iters > 0:
-            sources = _lloyd_relax(verts, sources, cortex_indices, lloyd_iters)
-            # Recompute geodesic distances from the relaxed sources for the
-            # final assignment step.
-            per_source_dists = dijkstra(adj, indices=sources, directed=False)
+            # Geodesic Lloyd: assignment uses Dijkstra distances throughout, so
+            # patch boundaries respect the surface geometry during convergence.
+            # Only re-runs Dijkstra for sources that moved each iter.
+            sources, per_source_dists = _lloyd_relax_geodesic(
+                adj, verts, sources, per_source_dists, cortex_indices, lloyd_iters
+            )
         per_vertex_assignment = _assign_to_nearest_source_dijkstra(per_source_dists)
     else:
         sources = _fps_euclidean3d(
             verts, n_patches_hem, first_source, cortex_indices
         )
         if lloyd_iters > 0:
-            sources = _lloyd_relax(verts, sources, cortex_indices, lloyd_iters)
+            sources = _lloyd_relax_euclidean(
+                verts, sources, cortex_indices, lloyd_iters
+            )
         per_vertex_assignment = _assign_to_nearest_source_euclidean(verts, sources)
 
     result: np.ndarray = per_vertex_assignment[cortex_indices] + hemisphere_offset
@@ -241,35 +245,72 @@ def _assign_to_nearest_source_euclidean(
     return out
 
 
-def _lloyd_relax(
+def _lloyd_relax_euclidean(
     verts: np.ndarray,
     sources: np.ndarray,
     candidate_indices: np.ndarray,
     n_iters: int,
 ) -> np.ndarray:
-    """Lloyd relaxation in 3D Euclidean space — moves sources to patch centroids.
+    """Lloyd relaxation using 3D Euclidean distances throughout.
 
-    Each iteration: (1) reassign every vertex to its nearest source by 3D
-    Euclidean distance, (2) for each patch, compute the 3D centroid of its
-    members and replace the source with the nearest cortex vertex to that
-    centroid. Early-stops when the source set stabilizes.
+    Used by the ``euclidean3d`` metric where the FPS itself is in 3D
+    Euclidean. Each iteration: (1) reassign every vertex to its nearest
+    source by 3D Euclidean distance, (2) for each patch, find the
+    candidate (cortex) vertex closest to the patch's 3D centroid.
+    Early-stops when the source set stabilizes.
+    """
+    cand_verts = verts[candidate_indices]
+    sources = sources.astype(np.int64).copy()
+    for _ in range(n_iters):
+        diff = verts[None, :, :] - verts[sources][:, None, :]  # (S, V, 3)
+        dists = np.linalg.norm(diff, axis=-1)  # (S, V)
+        per_vertex_assignment = np.argmin(dists, axis=0)
+        new_sources = _lloyd_centroid_step(
+            verts, cand_verts, candidate_indices, sources, per_vertex_assignment
+        )
+        if np.array_equal(new_sources, sources):
+            break
+        sources = new_sources
+    return sources
 
-    Lloyd is run in 3D Euclidean rather than along the geodesic graph because
-    (i) at the patch scale the surface is approximately locally Euclidean,
-    (ii) it's much cheaper than re-running multi-source Dijkstra each
-    iteration, and (iii) the final per-vertex assignment is still done in
-    the requested metric (geodesic_dijkstra or euclidean3d) by the caller, so
-    patch boundaries respect the surface geometry. Empirically reduces
-    patch-size std by ~2× on real cortex.
+
+def _lloyd_relax_geodesic(
+    adj: csr_matrix,
+    verts: np.ndarray,
+    sources: np.ndarray,
+    per_source_dists: np.ndarray,
+    candidate_indices: np.ndarray,
+    n_iters: int,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Lloyd relaxation using geodesic (Dijkstra) distances in the assignment step.
+
+    Each iteration: (1) reassign every vertex to its nearest source by
+    *geodesic* distance — using the cached ``per_source_dists`` matrix —
+    so patch boundaries respect the surface geometry during convergence.
+    On a folded cortex this is meaningfully different from
+    :func:`_lloyd_relax_euclidean` because two vertices that are close in
+    3D (on opposite walls of a sulcus) are far in geodesic distance. The
+    centroid step is still computed in 3D — there is no canonical
+    "geodesic centroid" of a vertex set — and the new source is the
+    cortex vertex nearest in 3D Euclidean to that centroid.
+
+    To keep cost down: only re-runs Dijkstra for sources that *moved*
+    in the centroid step. Once Lloyd starts converging (most sources
+    stable), iterations become nearly free. Typical convergence is
+    5–10 iterations on cortex meshes.
 
     Parameters
     ----------
+    adj : csr_matrix
+        Edge-graph adjacency for the hemisphere mesh.
     verts : ndarray of shape ``(V, 3)``
         Mesh vertex coordinates.
-    sources : ndarray of shape ``(n_patches,)`` int
+    sources : ndarray of shape ``(n_patches,)``
         Initial source indices (typically from FPS).
+    per_source_dists : ndarray of shape ``(n_patches, V)``
+        Geodesic distance from each source to every vertex (from FPS).
     candidate_indices : ndarray of int
-        Mesh-vertex indices that sources may be drawn from (cortex only).
+        Cortex grayordinate mesh-vertex indices.
     n_iters : int
         Maximum iterations. Early-stop on convergence.
 
@@ -277,31 +318,54 @@ def _lloyd_relax(
     -------
     sources : ndarray of shape ``(n_patches,)`` int64
         Relaxed source indices, all in ``candidate_indices``.
+    per_source_dists : ndarray of shape ``(n_patches, V)``
+        Updated distance matrix from the relaxed sources, ready for the
+        final per-vertex assignment.
     """
-    cand_verts = verts[candidate_indices]  # (V_cand, 3) — precompute once
+    cand_verts = verts[candidate_indices]
     sources = sources.astype(np.int64).copy()
+    per_source_dists = per_source_dists.copy()
     for _ in range(n_iters):
-        # Reassignment step: 3D Euclidean argmin per vertex.
-        diff = verts[None, :, :] - verts[sources][:, None, :]  # (S, V, 3)
-        dists = np.linalg.norm(diff, axis=-1)  # (S, V)
-        per_vertex_assignment = np.argmin(dists, axis=0)
-
-        # Centroid step: for each patch, find the cortex vertex closest to the
-        # patch's 3D centroid.
-        new_sources = sources.copy()
-        for k in range(len(sources)):
-            members = np.where(per_vertex_assignment == k)[0]
-            if len(members) == 0:
-                # Source restriction in FPS prevents this on connected meshes,
-                # but keep the source unchanged if it ever happens.
-                continue
-            centroid = verts[members].mean(axis=0)
-            new_sources[k] = candidate_indices[
-                int(np.argmin(np.linalg.norm(cand_verts - centroid, axis=1)))
-            ]
-
+        per_vertex_assignment = np.argmin(per_source_dists, axis=0)
+        new_sources = _lloyd_centroid_step(
+            verts, cand_verts, candidate_indices, sources, per_vertex_assignment
+        )
         if np.array_equal(new_sources, sources):
-            break  # converged
+            break
+        # Re-run Dijkstra ONLY for sources that moved.
+        changed_mask = new_sources != sources
+        changed_idx = np.where(changed_mask)[0]
+        if changed_idx.size > 0:
+            new_dists = dijkstra(
+                adj, indices=new_sources[changed_idx].tolist(), directed=False
+            )
+            # scipy returns 1-D for a single source, 2-D for multiple.
+            if new_dists.ndim == 1:
+                new_dists = new_dists[None, :]
+            per_source_dists[changed_idx] = new_dists
         sources = new_sources
+    return sources, per_source_dists
 
-    return sources
+
+def _lloyd_centroid_step(
+    verts: np.ndarray,
+    cand_verts: np.ndarray,
+    candidate_indices: np.ndarray,
+    sources: np.ndarray,
+    per_vertex_assignment: np.ndarray,
+) -> np.ndarray:
+    """Compute Lloyd centroid update: for each patch, find the cortex vertex
+    nearest to the patch's 3D centroid. Shared by both Lloyd variants."""
+    new_sources = sources.copy()
+    for k in range(len(sources)):
+        members = np.where(per_vertex_assignment == k)[0]
+        if len(members) == 0:
+            # Source restriction in FPS prevents this on connected meshes,
+            # but keep the source unchanged if it ever happens.
+            continue
+        centroid = verts[members].mean(axis=0)
+        new_sources[k] = candidate_indices[
+            int(np.argmin(np.linalg.norm(cand_verts - centroid, axis=1)))
+        ]
+    out: np.ndarray = new_sources
+    return out
