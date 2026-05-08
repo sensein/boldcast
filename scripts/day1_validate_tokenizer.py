@@ -60,6 +60,19 @@ def main() -> int:
             "computations."
         ),
     )
+    p.add_argument(
+        "--surface-msm",
+        type=str,
+        default="MSMAll",
+        choices=["MSMAll", "MSMSulc", "none"],
+        dest="surface_msm",
+        help=(
+            "Surface registration suffix. MSMAll matches the Atlas_MSMAll dtseries; "
+            "use MSMSulc or 'none' (FreeSurfer-aligned) only if the MSMAll surface "
+            "isn't available on the local datalad pull. Note: mesh topology is "
+            "identical across registrations; only vertex coordinates differ slightly."
+        ),
+    )
     args = p.parse_args()
 
     cfg = OmegaConf.load(args.config)
@@ -69,11 +82,12 @@ def main() -> int:
         subject=args.subject, run=args.task
     )
     surface_dir = cfg.data.surface_dir_template.format(subject=args.subject)
+    msm_suffix = "" if args.surface_msm == "none" else f"_{args.surface_msm}"
     lh_mesh = (
-        f"{surface_dir}/{args.subject}.L.{args.surface_variant}_MSMAll.32k_fs_LR.surf.gii"
+        f"{surface_dir}/{args.subject}.L.{args.surface_variant}{msm_suffix}.32k_fs_LR.surf.gii"
     )
     rh_mesh = (
-        f"{surface_dir}/{args.subject}.R.{args.surface_variant}_MSMAll.32k_fs_LR.surf.gii"
+        f"{surface_dir}/{args.subject}.R.{args.surface_variant}{msm_suffix}.32k_fs_LR.surf.gii"
     )
 
     print(f"[day1] loading dtseries: {dtseries_path}")
