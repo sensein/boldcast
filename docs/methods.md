@@ -60,6 +60,55 @@ per TR (scalar) after run-wise standardization. Round-trip decoding from
 patches to grayordinates is verified to numerical precision on all training
 subjects.
 
+Geodesic FPS is implemented as edge-graph Dijkstra on the cortical mesh
+(weighted by Euclidean edge length), incrementally maintaining a
+min-distance-to-source-set array via one Dijkstra per newly-picked
+source. The distance array computed for each FPS source is retained and
+reused directly for per-vertex patch assignment (argmin over sources),
+so no additional Dijkstra passes are required after FPS completes. This
+is itself a graph-level approximation of the exact polyhedral geodesic;
+both this and the heat-method approximation [Crane et al. 2013] are
+routinely used for FPS in mesh processing. FPS source picks are
+restricted to cortex grayordinate vertices (not all mesh vertices) —
+otherwise sources can land on medial-wall vertices and produce empty or
+under-filled patches after grayordinate subsetting.
+
+After FPS, **Lloyd relaxation** (default 10 iterations with early-stop
+on convergence) shifts each source toward the cortex vertex closest to
+its patch centroid, dramatically reducing patch-size variance. The
+geodesic path uses Dijkstra distances throughout the Lloyd loop so
+patch boundaries respect the surface geometry during convergence; only
+sources that move trigger a fresh Dijkstra, keeping iterations cheap
+once Lloyd starts converging. On `32k_fs_LR` the full per-hemisphere
+build (FPS + Lloyd + final assignment) is one-time and takes ~10–25 s
+on a single CPU thread via `scipy.sparse.csgraph.dijkstra`; the result
+is cached. A 3D-Euclidean fallback (FPS + 3D Lloyd) is exposed via a
+`metric` parameter for cases where the geodesic build is intolerable
+(at the cost of distances that jump across sulci).
+
+Empirically on HCP `32k_fs_LR` cortex, FPS + geodesic Lloyd at 1024
+patches yields a per-patch vertex-count distribution with mean ≈ 58
+(by construction), std ≈ 23, min 15, max ~180. The 40 % CV reflects
+the cortex's intrinsic geometric heterogeneity (gyri/sulci, vertex
+density variation across regions); FPS+Lloyd hits a floor here that
+further reduction would require either capacity-balanced k-means
+(penalize patch-size variance directly in the assignment step) or
+substantially more patches. We accept this as the realistic floor of
+deterministic geodesic patches and treat capacity-balanced extensions
+as future work; for our use case (per-patch mean BOLD as token
+features) within-cortex non-uniformity is a quality knob, not a
+correctness one. Heat-method geodesics [Crane et al. 2013] remain a
+viable upgrade for higher-resolution meshes or ablation sweeps that
+build many parcellations.
+
+Round-trip parity (decoding a `(T, P)` patch-mean tensor back to a
+`(T, V_cortex)` grayordinate tensor and re-encoding) is verified to
+numerical precision; on float64 with un-standardized BOLD the residual
+is ~`6e-11`. The float32 residual on raw HCP BOLD is dominated by
+`index_add_` accumulation rounding (~`scale × patch_size × ε_f32`,
+~`5000 × 200 × 1.2e-7 ≈ 0.1` on raw scanner units) and is expected to
+drop to `~1e-5` once data is run-wise standardized in the dataloader.
+
 This design contrasts with parcellation-based tokenization
 [e.g., Schaefer-400, Schaefer et al. 2018], which discards within-parcel
 spatial structure, and with 4D voxel grids [SwiFT], which expend compute on

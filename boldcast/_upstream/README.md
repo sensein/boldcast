@@ -12,6 +12,13 @@ nobrainer-acceptable standards even while they live in this repo:
 - **NumPy-style docstrings** on every module and public symbol.
 - **Tested in isolation** under `tests/_upstream/`.
 
+  When porting a module upstream, the corresponding test file under
+  `tests/_upstream/` ships with its synthetic fixtures from the project-level
+  `tests/conftest.py` (the conftest was hoisted up one level so project-side
+  tests share the same synthetic CIFTI dtseries and icosphere mesh fixtures).
+  The fixture definitions are themselves library-level — built only from
+  `nibabel`, `numpy`, and `trimesh` — so a downstream port can copy them as-is.
+
 When a module is accepted into nobrainer:
 
 1. Delete it from `boldcast/_upstream/`.

@@ -32,10 +32,13 @@ data:
 tokenize:
   n_patches_cortex: 1024
   fps_seed: 0
-  patch_cache: cache/patches_fsLR_32k_n1024_seed0.npz
+  # Cache filename embeds the FPS metric (`_geo` for geodesic_dijkstra,
+  # `_eu3d` for euclidean3d) per docs/adr/0002 — defense-in-depth on top
+  # of the (n_patches, seed, metric) metadata key inside the .npz.
+  patch_cache: cache/patches_fsLR_32k_n1024_seed0_geo.npz
   knn_k: 8
   knn_cache: cache/knn_k8_n1024.npz
-  cache_dir: ${oc.env:SCRATCH}/boldcast/cache_demo
+  cache_dir: ${oc.env:SCRATCH,/tmp}/boldcast/cache_demo
   standardize: run_wise   # mean/std per run before caching
 
 # Windowing ------------------------------------------------------------------
@@ -77,9 +80,9 @@ eval:
 # CIFTI surface release on fs_LR_32k from CBIG (NOT the volumetric nilearn
 # fetcher). Same input dtseries as BOLDcast — only the tokenization differs.
 baseline:
-  schaefer_dlabel: ${oc.env:DATA}/atlases/Schaefer2018_400Parcels_17Networks_order_fslr32k.dlabel.nii
+  schaefer_dlabel: ${oc.env:DATA,/tmp}/atlases/Schaefer2018_400Parcels_17Networks_order_fslr32k.dlabel.nii
   n_rois: 400
-  cache_dir: ${oc.env:SCRATCH}/boldcast/cache_demo_schaefer
+  cache_dir: ${oc.env:SCRATCH,/tmp}/boldcast/cache_demo_schaefer
   out_dir: results/day6_baseline
 
 # Distributed ----------------------------------------------------------------
