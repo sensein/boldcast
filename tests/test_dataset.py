@@ -153,3 +153,64 @@ def test_cache_metadata_mismatch_raises(
     )
     with pytest.raises(ValueError, match="cache metadata mismatch"):
         _ = ds2[0]
+
+
+def test_from_config_train_split(
+    synthetic_hcp_layout: tuple[Path, list[str], list[str]], tmp_path: Path
+) -> None:
+    """``from_config`` resolves subjects, runs, patches, cortex indices from a
+    config + writes a working Dataset. Uses a synthetic config pointing at the
+    synthetic HCP layout; sidesteps Day-1's real-mesh FPS by pre-seeding the
+    patch cache with a trivial assignment."""
+    import yaml
+
+    hcp_root, subjects, runs = synthetic_hcp_layout
+    train_file = tmp_path / "subjects_train.txt"
+    train_file.write_text("\n".join(subjects) + "\n")
+    heldout_file = tmp_path / "subjects_heldout.txt"
+    heldout_file.write_text("")  # empty heldout for the test
+
+    n_v = 100  # synthetic dtseries has 100 cortex grayordinates
+    n_p = 4
+    patch_cache = tmp_path / "patches.npz"
+    np.savez(
+        str(patch_cache),
+        assignment=_trivial_assignment(n_v=n_v, n_p=n_p),
+        n_patches=np.asarray(n_p),
+        seed=np.asarray(0),
+        metric=np.asarray("euclidean3d"),
+        lloyd_iters=np.asarray(0),
+        n_lh_cortex=np.asarray(50),
+        n_rh_cortex=np.asarray(50),
+        # SHAs left out — from_config must NOT call build_or_load_patches
+        # when the cache file already holds an `assignment` key.
+    )
+
+    cfg = {
+        "data": {
+            "dtseries_pattern": (
+                str(hcp_root)
+                + "/{subject}/MNINonLinear/Results/{run}/"
+                + "{run}_Atlas_MSMAll_hp2000_clean.dtseries.nii"
+            ),
+            "subjects_train_file": str(train_file),
+            "subjects_heldout_file": str(heldout_file),
+            "runs": runs,
+        },
+        "tokenize": {
+            "n_patches_cortex": n_p,
+            "patch_cache": str(patch_cache),
+            "cache_dir": str(tmp_path / "tokens_cache"),
+            "standardize": "run_wise",
+        },
+        "window": {"size": 10, "stride": 5},
+    }
+    cfg_path = tmp_path / "config.yaml"
+    cfg_path.write_text(yaml.safe_dump(cfg))
+
+    ds = HCPRestingDataset.from_config(str(cfg_path), split="train")
+    # 2 subjects × 2 runs × floor((20-10)/5)+1=3 windows = 12
+    assert len(ds) == 12
+    sample = ds[0]
+    assert sample["tokens"].shape == (10, n_p)
+    assert torch.isfinite(sample["tokens"]).all()

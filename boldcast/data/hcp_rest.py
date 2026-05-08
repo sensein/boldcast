@@ -25,6 +25,16 @@ def _short_sha(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()[:16]
 
 
+def _read_subject_list(path: str | Path) -> list[str]:
+    """Read a one-subject-per-line text file, dropping comments and blanks."""
+    out: list[str] = []
+    for line in Path(path).read_text().splitlines():
+        s = line.strip()
+        if s and not s.startswith("#"):
+            out.append(s)
+    return out
+
+
 class HCPRestingDataset(Dataset[dict[str, Any]]):
     """Map-style PyTorch Dataset over (subject, run, window) triples.
 
@@ -187,3 +197,99 @@ class HCPRestingDataset(Dataset[dict[str, Any]]):
             **{k: np.asarray(v) for k, v in expected_meta.items()},  # type: ignore[arg-type]
         )
         return tokens_arr
+
+    @classmethod
+    def from_config(
+        cls, config_path: str, split: str
+    ) -> HCPRestingDataset:
+        """Build an ``HCPRestingDataset`` from a Hydra/OmegaConf YAML config.
+
+        Parameters
+        ----------
+        config_path : str
+            Path to a YAML config (e.g. ``configs/demo.yaml``).
+        split : str
+            ``"train"`` or ``"heldout"``. Subject IDs are read from the
+            corresponding file in ``cfg.data``. Train uses
+            ``subject_id_offset=0``; heldout uses ``len(train_subjects)`` so
+            the two splits never share an int.
+
+        Notes
+        -----
+        Side effects on first call when the patch-assignment cache does not
+        exist: a single dtseries is read (header-only) to discover cortex
+        indices, then ``build_or_load_patches`` runs FPS+Lloyd. Subsequent
+        calls only read the cache.
+        """
+        from omegaconf import OmegaConf
+
+        from boldcast.io.cifti import (
+            cortex_grayordinate_indices,
+            load_dtseries,
+        )
+        from boldcast.tokenize.geodesic import build_or_load_patches
+
+        if split not in ("train", "heldout"):
+            raise ValueError(
+                f"split must be 'train' or 'heldout', got {split!r}"
+            )
+
+        cfg = OmegaConf.load(config_path)
+        OmegaConf.resolve(cfg)
+
+        train_subjects = _read_subject_list(str(cfg.data.subjects_train_file))
+        heldout_subjects = _read_subject_list(str(cfg.data.subjects_heldout_file))
+        if split == "train":
+            subjects = train_subjects
+            offset = 0
+        else:
+            subjects = heldout_subjects
+            offset = len(train_subjects)
+
+        # Patch assignment: load if cached, else build via Day-1 path.
+        patch_cache = Path(str(cfg.tokenize.patch_cache))
+        patch_assignment: NDArray[np.integer[Any]]
+        if patch_cache.exists():
+            patch_assignment = np.load(patch_cache, allow_pickle=False)["assignment"]
+        else:
+            # Reference subject = first in (train ∪ heldout). Read its first run
+            # dtseries header to get cortex indices, then build the assignment.
+            ref_subject = (train_subjects or heldout_subjects)[0]
+            ref_run = cfg.data.runs[0]
+            ref_path = str(cfg.data.dtseries_pattern).format(
+                subject=ref_subject, run=ref_run
+            )
+            _, header = load_dtseries(ref_path)
+            cortex_lh, cortex_rh = cortex_grayordinate_indices(header)
+            surface_dir = str(cfg.data.surface_dir_template).format(
+                subject=ref_subject
+            )
+            lh_mesh = (
+                f"{surface_dir}/{ref_subject}"
+                ".L.midthickness_MSMAll.32k_fs_LR.surf.gii"
+            )
+            rh_mesh = (
+                f"{surface_dir}/{ref_subject}"
+                ".R.midthickness_MSMAll.32k_fs_LR.surf.gii"
+            )
+            patch_assignment = build_or_load_patches(
+                mesh_lh_path=lh_mesh,
+                mesh_rh_path=rh_mesh,
+                cortex_indices_lh=cortex_lh,
+                cortex_indices_rh=cortex_rh,
+                cache_path=str(patch_cache),
+                n_patches=int(cfg.tokenize.n_patches_cortex),
+            )
+
+        return cls(
+            subjects=subjects,
+            runs=list(cfg.data.runs),
+            dtseries_pattern=str(cfg.data.dtseries_pattern),
+            cache_dir=str(cfg.tokenize.cache_dir),
+            patch_assignment=patch_assignment,
+            n_patches=int(cfg.tokenize.n_patches_cortex),
+            window_size=int(cfg.window.size),
+            stride=int(cfg.window.stride),
+            subject_id_offset=offset,
+            standardize_method=str(cfg.tokenize.standardize),
+        )
