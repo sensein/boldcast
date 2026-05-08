@@ -214,3 +214,57 @@ def test_from_config_train_split(
     sample = ds[0]
     assert sample["tokens"].shape == (10, n_p)
     assert torch.isfinite(sample["tokens"]).all()
+
+
+def test_iteration_order_is_deterministic_for_fixed_split(
+    synthetic_hcp_layout: tuple[Path, list[str], list[str]], tmp_path: Path
+) -> None:
+    """Two datasets built with the same args must yield identical
+    (subject_id, run_id, window_start) sequences over their full iteration."""
+    hcp_root, subjects, runs = synthetic_hcp_layout
+    pattern = (
+        str(hcp_root)
+        + "/{subject}/MNINonLinear/Results/{run}/"
+        + "{run}_Atlas_MSMAll_hp2000_clean.dtseries.nii"
+    )
+
+    def _build(cd: Path) -> HCPRestingDataset:
+        return HCPRestingDataset(
+            subjects=subjects, runs=runs, dtseries_pattern=pattern,
+            cache_dir=cd,
+            patch_assignment=_trivial_assignment(n_v=100, n_p=4),
+            n_patches=4, window_size=10, stride=5,
+        )
+
+    ds_a = _build(tmp_path / "cache_a")
+    ds_b = _build(tmp_path / "cache_b")
+    keys_a = [(ds_a[i]["subject_id"], ds_a[i]["run_id"], ds_a[i]["window_start"])
+              for i in range(len(ds_a))]
+    keys_b = [(ds_b[i]["subject_id"], ds_b[i]["run_id"], ds_b[i]["window_start"])
+              for i in range(len(ds_b))]
+    assert keys_a == keys_b
+
+
+def test_no_nan_in_any_window(
+    synthetic_hcp_layout: tuple[Path, list[str], list[str]], tmp_path: Path
+) -> None:
+    """Standardization with eps + zero-fill on constant grayordinates must
+    guarantee finite output across every window."""
+    hcp_root, subjects, runs = synthetic_hcp_layout
+    pattern = (
+        str(hcp_root)
+        + "/{subject}/MNINonLinear/Results/{run}/"
+        + "{run}_Atlas_MSMAll_hp2000_clean.dtseries.nii"
+    )
+    ds = HCPRestingDataset(
+        subjects=subjects, runs=runs, dtseries_pattern=pattern,
+        cache_dir=tmp_path / "cache",
+        patch_assignment=_trivial_assignment(n_v=100, n_p=4),
+        n_patches=4, window_size=10, stride=5,
+    )
+    for i in range(len(ds)):
+        sample = ds[i]
+        assert torch.isfinite(sample["tokens"]).all(), (
+            f"NaN/Inf at window {i}: subject_id={sample['subject_id']}, "
+            f"run_id={sample['run_id']}, window_start={sample['window_start']}"
+        )
