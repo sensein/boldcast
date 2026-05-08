@@ -1,9 +1,9 @@
 """Project-side cortical-patch tokenizer cache wrapper.
 
 Wraps :func:`boldcast._upstream.geodesic_patcher.precompute_patches` with a
-versioned cache keyed on ``(n_patches, seed, metric, hemisphere-cortex
-sizes)``. Metadata mismatch raises rather than silently rebuilding so cache
-invalidation is always explicit (delete the file).
+versioned cache keyed on ``(n_patches, seed, metric, lloyd_iters,
+hemisphere-cortex sizes)``. Metadata mismatch raises rather than silently
+rebuilding so cache invalidation is always explicit (delete the file).
 """
 
 from __future__ import annotations
@@ -30,6 +30,7 @@ def build_or_load_patches(
     n_patches: int = 1024,
     seed: int = 0,
     metric: Metric = "geodesic_dijkstra",
+    lloyd_iters: int = 10,
 ) -> np.ndarray:
     """Return per-grayordinate patch IDs, building and caching on first call.
 
@@ -41,7 +42,7 @@ def build_or_load_patches(
         Mesh-vertex indices for cortex grayordinates per hemisphere.
     cache_path : str
         Where the per-grayordinate assignment ``.npz`` is read/written.
-    n_patches, seed, metric
+    n_patches, seed, metric, lloyd_iters
         Forwarded to ``precompute_patches`` and stored in the cache as
         metadata. A cached file with mismatching metadata raises
         ``ValueError`` rather than silently rebuilding.
@@ -55,12 +56,13 @@ def build_or_load_patches(
         "n_patches": int(n_patches),
         "seed": int(seed),
         "metric": metric,
+        "lloyd_iters": int(lloyd_iters),
         "n_lh_cortex": int(cortex_indices_lh.shape[0]),
         "n_rh_cortex": int(cortex_indices_rh.shape[0]),
     }
     if cache.exists():
         loaded = np.load(cache, allow_pickle=False)
-        cached_meta = {k: loaded[k].item() for k in metadata}
+        cached_meta = {k: loaded[k].item() for k in metadata if k in loaded}
         if cached_meta != metadata:
             raise ValueError(
                 f"cache metadata mismatch at {cache}: "
@@ -80,6 +82,7 @@ def build_or_load_patches(
         n_patches=n_patches,
         seed=seed,
         metric=metric,
+        lloyd_iters=lloyd_iters,
     )
     cache.parent.mkdir(parents=True, exist_ok=True)
     arrays: dict[str, np.ndarray] = {

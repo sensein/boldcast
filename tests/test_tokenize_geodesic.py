@@ -52,6 +52,7 @@ def test_cache_miss_then_hit_uses_cache(
         ("seed", 1),
         ("n_patches", 16),
         ("metric", "geodesic_dijkstra"),
+        ("lloyd_iters", 5),
         ("n_lh_cortex_drop", 10),
         ("n_rh_cortex_drop", 10),
     ],

@@ -138,10 +138,24 @@ def main() -> int:
         f"in {t_tokenize:.3f} s"
     )
 
+    # Float32 round-trip — realistic pipeline cost. On raw HCP BOLD (O(5000)),
+    # the residual is dominated by index_add_ accumulation rounding:
+    # ~ scale * patch_size * eps_f32 ~ 5000 * 200 * 1.2e-7 ~ 0.1.
     reconstructed = patch_means[:, assignment]
     patch_means_2 = patcher.forward(reconstructed)
-    residual = (patch_means - patch_means_2).abs().max().item()
-    print(f"[day1] round-trip residual (max abs): {residual:.3e}")
+    residual_f32 = (patch_means - patch_means_2).abs().max().item()
+
+    # Float64 round-trip — algorithm correctness check, decoupled from data scale.
+    # Should be ~ 1e-10 if the patcher implements scatter-mean correctly.
+    x64 = x.to(torch.float64)
+    pm64_1 = patcher.forward(x64)
+    pm64_2 = patcher.forward(pm64_1[:, assignment])
+    residual_f64 = (pm64_1 - pm64_2).abs().max().item()
+
+    print(f"[day1] round-trip residual (float32, raw scale): {residual_f32:.3e}")
+    print(
+        f"[day1] round-trip residual (float64, algo-correctness): {residual_f64:.3e}"
+    )
 
     Path(args.out_json).parent.mkdir(parents=True, exist_ok=True)
     with open(args.out_json, "w") as f:
@@ -159,7 +173,8 @@ def main() -> int:
                 "patch_size_max": int(sizes.max()),
                 "tokenize_seconds": float(t_tokenize),
                 "patch_build_seconds": float(t_patches),
-                "round_trip_max_abs_residual": float(residual),
+                "round_trip_max_abs_residual_f32": float(residual_f32),
+                "round_trip_max_abs_residual_f64": float(residual_f64),
             },
             f,
             indent=2,

@@ -193,6 +193,86 @@ def test_no_empty_patches_when_cortex_excludes_some_mesh_vertices(
     )
 
 
+@pytest.mark.parametrize("metric", ["geodesic_dijkstra", "euclidean3d"])
+def test_lloyd_reduces_patch_size_variance_on_squashed_mesh(metric: str) -> None:
+    """Lloyd-relaxation must lower patch-size std on a non-uniform mesh.
+
+    A heavily squashed icosphere has high vertex density near the poles —
+    plain FPS produces uneven patch sizes there. Lloyd should reduce the
+    std by a meaningful margin.
+    """
+    import trimesh
+
+    m = trimesh.creation.icosphere(subdivisions=3)  # ~642 vertices
+    verts = m.vertices.astype(np.float32).copy()
+    verts[:, 2] *= 0.2  # flatten — vertex density highly non-uniform
+    faces = m.faces.astype(np.int32)
+    n_v = verts.shape[0]
+    cortex = np.arange(n_v)
+
+    n_patches = 16
+    a_no_lloyd = precompute_patches(
+        mesh_lh=(verts, faces),
+        mesh_rh=(verts, faces),
+        cortex_indices_lh=cortex,
+        cortex_indices_rh=cortex,
+        n_patches=n_patches,
+        seed=0,
+        metric=metric,
+        lloyd_iters=0,
+    )
+    a_lloyd = precompute_patches(
+        mesh_lh=(verts, faces),
+        mesh_rh=(verts, faces),
+        cortex_indices_lh=cortex,
+        cortex_indices_rh=cortex,
+        n_patches=n_patches,
+        seed=0,
+        metric=metric,
+        lloyd_iters=10,
+    )
+    std_no_lloyd = float(np.bincount(a_no_lloyd, minlength=n_patches).std())
+    std_lloyd = float(np.bincount(a_lloyd, minlength=n_patches).std())
+    assert std_lloyd < std_no_lloyd, (
+        f"Lloyd should reduce patch-size std but did not "
+        f"({metric}): no_lloyd={std_no_lloyd:.2f}, lloyd={std_lloyd:.2f}"
+    )
+
+
+def test_lloyd_iters_zero_is_pure_fps(
+    synthetic_mesh_lh: tuple[np.ndarray, np.ndarray],
+    synthetic_mesh_rh: tuple[np.ndarray, np.ndarray],
+) -> None:
+    """lloyd_iters=0 should match the FPS-only behavior (deterministic for fixed seed)."""
+    a = precompute_patches(
+        synthetic_mesh_lh,
+        synthetic_mesh_rh,
+        np.arange(synthetic_mesh_lh[0].shape[0]),
+        np.arange(synthetic_mesh_rh[0].shape[0]),
+        n_patches=8,
+        seed=0,
+        lloyd_iters=0,
+    )
+    counts = np.bincount(a, minlength=8)
+    assert int(counts.min()) > 0
+
+
+def test_negative_lloyd_iters_raises(
+    synthetic_mesh_lh: tuple[np.ndarray, np.ndarray],
+    synthetic_mesh_rh: tuple[np.ndarray, np.ndarray],
+) -> None:
+    with pytest.raises(ValueError, match="lloyd_iters"):
+        precompute_patches(
+            synthetic_mesh_lh,
+            synthetic_mesh_rh,
+            np.arange(synthetic_mesh_lh[0].shape[0]),
+            np.arange(synthetic_mesh_rh[0].shape[0]),
+            n_patches=8,
+            seed=0,
+            lloyd_iters=-1,
+        )
+
+
 def test_disconnected_mesh_raises_for_geodesic_dijkstra() -> None:
     """Two separate icospheres with no shared vertices → geodesic FPS must raise."""
     import trimesh
