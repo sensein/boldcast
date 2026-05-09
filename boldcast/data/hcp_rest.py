@@ -127,8 +127,8 @@ class HCPRestingDataset(Dataset[dict[str, Any]]):
         for s_idx, subject in enumerate(self.subjects):
             for r_idx, run in enumerate(self.runs):
                 path = self.dtseries_pattern.format(subject=subject, run=run)
-                img = nib.load(path)  # type: ignore[attr-defined]
-                series_axis = img.header.get_axis(0)  # type: ignore[attr-defined]
+                img = nib.load(path)  # type: ignore[attr-defined,unused-ignore]
+                series_axis = img.header.get_axis(0)  # type: ignore[attr-defined,unused-ignore]
                 t_full = int(series_axis.size)
                 if t_full < self.window_size:
                     raise ValueError(
