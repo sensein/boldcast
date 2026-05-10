@@ -66,3 +66,76 @@ def test_mamba_block_forward_shape() -> None:
     assert out.shape == x.shape
     assert out.dtype == x.dtype
     assert torch.isfinite(out).all()
+
+
+def test_boldcast_demo_param_count_in_budget() -> None:
+    """CPU instantiation: param count must be in [0.5e6, 1.5e6] per ADR 0004."""
+    from boldcast.models.boldcast_demo import BOLDcastDemo
+
+    # NOTE: This test needs mamba_ssm to construct the full model. Skip under
+    # uv where mamba_ssm is not installed (no GPU on the login node).
+    try:
+        from boldcast.models.temporal import MambaBlock  # noqa: F401
+    except ImportError:
+        pytest.skip("mamba_ssm not installed (uv login-node env)")
+
+    adjacency = _identity_adjacency(n_patches=1024, k=8)
+    m = BOLDcastDemo(
+        d_in=1,
+        d_model=128,
+        n_layers=4,
+        n_patches=1024,
+        k_neighbors=8,
+        adjacency=adjacency,
+    )
+    n_params = sum(p.numel() for p in m.parameters())
+    assert 0.5e6 <= n_params <= 1.5e6, (
+        f"param count {n_params/1e6:.3f}M outside Day-3 budget [0.5M, 1.5M]"
+    )
+
+
+def test_boldcast_demo_embed_returns_d_model() -> None:
+    """``embed(x)`` returns (B, T, P, d_model); ``forward(x)`` returns (B, T, P, d_in).
+
+    CPU-runnable using n_layers=0 (skip Mamba+kNN stack, exercise embed + head
+    only) — this path doesn't touch boldcast.models.temporal at all and works
+    under uv without mamba_ssm."""
+    from boldcast.models.boldcast_demo import BOLDcastDemo
+
+    adjacency = _identity_adjacency(n_patches=8, k=4)
+    m = BOLDcastDemo(
+        d_in=1,
+        d_model=8,
+        n_layers=0,
+        n_patches=8,
+        k_neighbors=4,
+        adjacency=adjacency,
+    )
+    x = torch.randn(2, 5, 8, 1)
+    embed = m.embed(x)
+    out = m(x)
+    assert embed.shape == (2, 5, 8, 8)
+    assert out.shape == (2, 5, 8, 1)
+    assert torch.isfinite(out).all()
+
+
+@pytest.mark.gpu
+def test_boldcast_demo_full_forward_on_cuda() -> None:
+    """Full 4-layer model forward on (B=2, T=256, P=1024, 1) under CUDA."""
+    from boldcast.models.boldcast_demo import BOLDcastDemo
+
+    if not torch.cuda.is_available():
+        pytest.skip("CUDA not available")
+    adjacency = _identity_adjacency(n_patches=1024, k=8).cuda()
+    m = BOLDcastDemo(
+        d_in=1,
+        d_model=128,
+        n_layers=4,
+        n_patches=1024,
+        k_neighbors=8,
+        adjacency=adjacency,
+    ).cuda()
+    x = torch.randn(2, 256, 1024, 1, device="cuda")
+    out = m(x)
+    assert out.shape == x.shape
+    assert torch.isfinite(out).all()
