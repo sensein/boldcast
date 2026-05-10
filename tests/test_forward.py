@@ -50,3 +50,19 @@ def test_knn_attention_param_count_quadratic_in_d_model() -> None:
     expected = 4 * (d_model * d_model + d_model) + 2 * d_model
     got = sum(p.numel() for p in attn.parameters())
     assert got == expected, f"expected {expected} params, got {got}"
+
+
+@pytest.mark.gpu
+def test_mamba_block_forward_shape() -> None:
+    """MambaBlock preserves (B, T, P, d_model) shape on a CUDA tensor."""
+    from boldcast.models.temporal import MambaBlock
+
+    if not torch.cuda.is_available():
+        pytest.skip("CUDA not available")
+    d_model = 16
+    block = MambaBlock(d_model=d_model).cuda()
+    x = torch.randn(2, 5, 8, d_model, device="cuda")
+    out = block(x)
+    assert out.shape == x.shape
+    assert out.dtype == x.dtype
+    assert torch.isfinite(out).all()
