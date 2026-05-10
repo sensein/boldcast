@@ -5,10 +5,13 @@ Targeted for upstream contribution to ``nobrainer.io`` (see
 ``boldcast/_upstream/README.md``).
 
 Note on type checking: nibabel ships sparse type stubs, so several
-``# type: ignore[attr-defined]`` markers below cover symbols that exist
-at runtime but are not declared in nibabel's stubs (``nib.load``,
+``# type: ignore[attr-defined,unused-ignore]`` markers below cover symbols
+that exist at runtime but are not declared in nibabel's stubs (``nib.load``,
 ``Cifti2Image``, ``get_fdata``, ``get_axis``, ``darrays``, etc.). These
-are upstream stub gaps, not bugs in our code.
+are upstream stub gaps, not bugs in our code. ``unused-ignore`` is appended
+so the markers stay valid across nibabel versions: older stubs require the
+ignore, newer stubs may close the gap, and either case is silently
+accepted.
 """
 
 from __future__ import annotations
@@ -46,10 +49,10 @@ def load_dtseries(path: str) -> tuple[NDArray[np.float32], dict[str, Any]]:
         ``name``, ``slice``, ``vertex`` mesh-index array, and ``nvertex``
         of the parent mesh).
     """
-    img = nib.load(path)  # type: ignore[attr-defined]
-    data = np.asarray(img.get_fdata(), dtype=np.float32)  # type: ignore[attr-defined]
-    series_axis = img.header.get_axis(0)  # type: ignore[attr-defined]
-    brain_axis = img.header.get_axis(1)  # type: ignore[attr-defined]
+    img = nib.load(path)  # type: ignore[attr-defined,unused-ignore]
+    data = np.asarray(img.get_fdata(), dtype=np.float32)  # type: ignore[attr-defined,unused-ignore]
+    series_axis = img.header.get_axis(0)  # type: ignore[attr-defined,unused-ignore]
+    brain_axis = img.header.get_axis(1)  # type: ignore[attr-defined,unused-ignore]
 
     brain_models: list[dict[str, Any]] = []
     for name, slc, struct in brain_axis.iter_structures():
@@ -89,19 +92,19 @@ def save_dtseries(data: NDArray[np.floating[Any]], template: str, out: str) -> N
     out : str
         Output path (``*.dtseries.nii``).
     """
-    template_img = nib.load(template)  # type: ignore[attr-defined]
-    series_axis = template_img.header.get_axis(0)  # type: ignore[attr-defined]
-    brain_axis = template_img.header.get_axis(1)  # type: ignore[attr-defined]
+    template_img = nib.load(template)  # type: ignore[attr-defined,unused-ignore]
+    series_axis = template_img.header.get_axis(0)  # type: ignore[attr-defined,unused-ignore]
+    brain_axis = template_img.header.get_axis(1)  # type: ignore[attr-defined,unused-ignore]
     expected = (int(series_axis.size), int(brain_axis.size))
     if data.shape != expected:
         raise ValueError(
             f"data shape {tuple(data.shape)} does not match template axes "
             f"{expected} (template={template!r})"
         )
-    img = nib.cifti2.Cifti2Image(  # type: ignore[attr-defined,no-untyped-call]
+    img = nib.cifti2.Cifti2Image(  # type: ignore[attr-defined,no-untyped-call,unused-ignore]
         np.asarray(data, dtype=np.float32), template_img.header
     )
-    nib.save(img, out)  # type: ignore[attr-defined]
+    nib.save(img, out)  # type: ignore[attr-defined,unused-ignore]
 
 
 def cortex_grayordinate_indices(
@@ -181,9 +184,9 @@ def load_gifti_surface(path: str) -> tuple[NDArray[np.float32], NDArray[np.int32
     vertices : ndarray of shape ``(V, 3)`` float32
     faces : ndarray of shape ``(F, 3)`` int32
     """
-    img = nib.load(path)  # type: ignore[attr-defined]
+    img = nib.load(path)  # type: ignore[attr-defined,unused-ignore]
     pointset_intent = nib.nifti1.intent_codes.code["pointset"]
     triangle_intent = nib.nifti1.intent_codes.code["triangle"]
-    verts = next(d for d in img.darrays if d.intent == pointset_intent).data  # type: ignore[attr-defined]
-    faces = next(d for d in img.darrays if d.intent == triangle_intent).data  # type: ignore[attr-defined]
+    verts = next(d for d in img.darrays if d.intent == pointset_intent).data  # type: ignore[attr-defined,unused-ignore]
+    faces = next(d for d in img.darrays if d.intent == triangle_intent).data  # type: ignore[attr-defined,unused-ignore]
     return np.asarray(verts, dtype=np.float32), np.asarray(faces, dtype=np.int32)

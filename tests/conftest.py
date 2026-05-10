@@ -94,3 +94,50 @@ def synthetic_gifti_path_factory(
         return out
 
     return _make
+
+
+@pytest.fixture
+def synthetic_hcp_layout(tmp_path: Path) -> tuple[Path, list[str], list[str]]:
+    """Two synthetic subjects × two synthetic runs in HCP-like directory layout.
+
+    Returns ``(hcp_root, subjects, runs)`` where ``hcp_root`` is the parent
+    directory holding the standard HCP path
+    ``{subject}/MNINonLinear/Results/{run}/{run}_Atlas_MSMAll_hp2000_clean.dtseries.nii``,
+    and ``subjects`` / ``runs`` are the string IDs to be plugged into a
+    config-style ``dtseries_pattern``.
+
+    Each synthetic dtseries has T=20 TRs and V=100 grayordinates (50 LH + 50 RH
+    cortex), matching the schema of ``synthetic_dtseries`` so the Day-1 patcher
+    can be reused unchanged.
+    """
+    hcp_root = tmp_path / "hcp_root"
+    subjects = ["999001", "999002"]
+    runs = ["rfMRI_FAKE1_PA", "rfMRI_FAKE2_AP"]
+    n_tr, n_lh, n_rh = 20, 50, 50
+    n_lh_verts, n_rh_verts = 60, 60
+
+    rng = np.random.default_rng(0)
+    bm_lh = cifti2_axes.BrainModelAxis.from_surface(
+        vertices=np.arange(n_lh), nvertex=n_lh_verts, name="CortexLeft"
+    )
+    bm_rh = cifti2_axes.BrainModelAxis.from_surface(
+        vertices=np.arange(n_rh), nvertex=n_rh_verts, name="CortexRight"
+    )
+    brain_axis = bm_lh + bm_rh
+    series_axis = cifti2_axes.SeriesAxis(start=0.0, step=1.0, size=n_tr)
+    header = nib.cifti2.Cifti2Header.from_axes((series_axis, brain_axis))
+
+    for subject in subjects:
+        for run in runs:
+            run_dir = (
+                hcp_root / subject / "MNINonLinear" / "Results" / run
+            )
+            run_dir.mkdir(parents=True, exist_ok=True)
+            data = rng.standard_normal((n_tr, n_lh + n_rh), dtype=np.float32)
+            img = nib.cifti2.Cifti2Image(data, header)
+            nib.save(
+                img,
+                str(run_dir / f"{run}_Atlas_MSMAll_hp2000_clean.dtseries.nii"),
+            )
+
+    return hcp_root, subjects, runs
