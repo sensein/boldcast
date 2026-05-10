@@ -16,7 +16,17 @@ Acceptance (per ``docs/10_day_plan.md`` Day 2):
 from __future__ import annotations
 
 import argparse
+import sys
 import time
+from pathlib import Path
+
+# Bootstrap: make ``boldcast`` importable when this script is run as
+# ``python scripts/foo.py`` from any worktree, regardless of whether the
+# package is also installed editable into the active env. Inserts the repo
+# root (parent of scripts/) at the head of sys.path.
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 
 import torch
 from boldcast.data.hcp_rest import HCPRestingDataset
