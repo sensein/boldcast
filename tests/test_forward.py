@@ -139,3 +139,31 @@ def test_boldcast_demo_full_forward_on_cuda() -> None:
     out = m(x)
     assert out.shape == x.shape
     assert torch.isfinite(out).all()
+
+
+def test_baseline_schaefer_param_count_in_budget() -> None:
+    """Same param budget as BOLDcastDemo — only n_patches differs (400 vs 1024)."""
+    pytest.importorskip("mamba_ssm")
+    from boldcast.models.baseline import BaselineSchaefer400
+
+    adjacency = _identity_adjacency(n_patches=400, k=8)
+    m = BaselineSchaefer400(
+        d_in=1, d_model=128, n_layers=4, k_neighbors=8, adjacency=adjacency
+    )
+    n_params = sum(p.numel() for p in m.parameters())
+    assert 0.5e6 <= n_params <= 1.5e6
+
+
+@pytest.mark.gpu
+def test_baseline_schaefer_forward_on_cuda() -> None:
+    from boldcast.models.baseline import BaselineSchaefer400
+
+    if not torch.cuda.is_available():
+        pytest.skip("CUDA not available")
+    adjacency = _identity_adjacency(n_patches=400, k=8).cuda()
+    m = BaselineSchaefer400(
+        d_in=1, d_model=128, n_layers=4, k_neighbors=8, adjacency=adjacency
+    ).cuda()
+    x = torch.randn(2, 256, 400, 1, device="cuda")
+    out = m(x)
+    assert out.shape == x.shape
