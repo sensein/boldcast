@@ -107,7 +107,10 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-v --cov=boldcast --cov-report=term-missing"
+addopts = "-v --cov=boldcast --cov-report=term-missing -m 'not gpu'"
+markers = [
+    "gpu: requires a CUDA-capable GPU and the micromamba env (mamba-ssm / causal-conv1d). Skipped on login-node uv gates; run explicitly via `pytest -m gpu` on a compute node.",
+]
 
 [tool.coverage.run]
 source = ["boldcast"]
