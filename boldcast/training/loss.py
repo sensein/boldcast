@@ -35,6 +35,8 @@ def build_forecast_targets(
         ``(B, T, P, d_in)`` input window.
     horizons
         Positive integer offsets to predict. ``max(horizons)`` must be ``< T``.
+        Duplicate values are allowed but will produce identical H slices; the
+        caller is responsible for uniqueness if that matters.
 
     Returns
     -------

@@ -44,18 +44,28 @@ def test_build_forecast_targets_rejects_empty_horizons() -> None:
 
 def test_build_forecast_targets_rejects_non_positive_horizon() -> None:
     tokens = torch.randn(2, 8, 3, 1)
-    with pytest.raises(ValueError, match="positive"):
+    with pytest.raises(ValueError, match=r"horizons must be positive"):
         build_forecast_targets(tokens, horizons=(0, 5))
-    with pytest.raises(ValueError, match="positive"):
+    with pytest.raises(ValueError, match=r"horizons must be positive"):
         build_forecast_targets(tokens, horizons=(1, -3))
 
 
 def test_build_forecast_targets_rejects_max_horizon_ge_t() -> None:
     tokens = torch.randn(2, 8, 3, 1)
-    with pytest.raises(ValueError, match="max"):
+    with pytest.raises(ValueError, match=r"max\(horizons\)"):
         build_forecast_targets(tokens, horizons=(1, 8))   # 8 == T
-    with pytest.raises(ValueError, match="max"):
+    with pytest.raises(ValueError, match=r"max\(horizons\)"):
         build_forecast_targets(tokens, horizons=(1, 9))   # 9 > T
+
+
+def test_build_forecast_targets_preserves_horizon_insertion_order() -> None:
+    """H axis tracks input order, not sorted order."""
+    tokens = torch.arange(8, dtype=torch.float32).reshape(1, 8, 1, 1)
+    out = build_forecast_targets(tokens, horizons=(5, 1))  # reversed order
+    # T_valid = 8 - 5 = 3; out[:, :, :, 0, :] -> h=5 -> tokens[:, 5:8]
+    # out[:, :, :, 1, :] -> h=1 -> tokens[:, 1:4]
+    assert torch.equal(out[:, :, :, 0, :], tokens[:, 5:8])
+    assert torch.equal(out[:, :, :, 1, :], tokens[:, 1:4])
 
 
 def test_forecasting_loss_zero_on_identical_inputs() -> None:
