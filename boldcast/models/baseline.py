@@ -28,6 +28,7 @@ class BaselineSchaefer400(nn.Module):
         n_layers: int,
         k_neighbors: int,
         adjacency: torch.Tensor,
+        use_checkpoint: bool = False,
     ) -> None:
         super().__init__()
         self._inner = BOLDcastDemo(
@@ -37,6 +38,7 @@ class BaselineSchaefer400(nn.Module):
             n_patches=400,
             k_neighbors=k_neighbors,
             adjacency=adjacency,
+            use_checkpoint=use_checkpoint,
         )
 
     def embed(self, x: torch.Tensor) -> torch.Tensor:

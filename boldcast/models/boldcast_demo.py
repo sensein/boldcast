@@ -5,6 +5,16 @@ construction (ADR 0004). The ``Mamba``-importing ``MambaBlock`` is
 imported lazily inside the constructor so this module can be loaded
 under uv (CPU-only) for non-Mamba code paths (embed/head shape tests,
 param-count audit at ``n_layers=0``).
+
+Memory: ``use_checkpoint=True`` wraps each (MambaBlock + KNNAttention)
+pair in ``torch.utils.checkpoint.checkpoint(..., use_reentrant=False)``.
+This recomputes the pair's forward during backward instead of saving
+activations — essential for Mamba's per-timestep SSM hidden state,
+which otherwise dominates training-mode peak memory (~8 GB per block
+at the demo shape). Off by default so CPU unit tests don't incur
+checkpoint's training-mode requirement; on for the Day-3 validation
+script and Day-5 DDP training (matches the canonical training recipe
+in docs/methods.md "Long-Context Mamba Backbone").
 """
 
 from __future__ import annotations
@@ -15,10 +25,43 @@ from typing import cast as _cast
 
 import torch
 from torch import nn
+from torch.utils.checkpoint import checkpoint
 
 from boldcast.models.spatial import KNNAttention
 
 __all__ = ["BOLDcastDemo"]
+
+
+class _MambaKnnPair(nn.Module):
+    """One layer of the interleaved backbone: MambaBlock + KNNAttention
+    with the kNN residual. Packaged as a single Module so activation
+    checkpointing wraps the full pair as one recompute unit.
+
+    MambaBlock returns ``x + mamba_residual`` internally; KNNAttention
+    returns just the attention output, so this wrapper applies the kNN
+    residual externally.
+    """
+
+    def __init__(
+        self,
+        d_model: int,
+        k_neighbors: int,
+        adjacency: torch.Tensor,
+    ) -> None:
+        super().__init__()
+        # Lazy import: under uv (no mamba_ssm) BOLDcastDemo with n_layers=0
+        # does not construct a _MambaKnnPair, so this import never fires.
+        from boldcast.models.temporal import MambaBlock
+
+        self.mamba = MambaBlock(d_model=d_model)
+        self.knn = KNNAttention(
+            d_model=d_model, k=k_neighbors, adjacency=adjacency
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = self.mamba(x)
+        out: torch.Tensor = x + self.knn(x)
+        return out
 
 
 class BOLDcastDemo(nn.Module):
@@ -36,6 +79,12 @@ class BOLDcastDemo(nn.Module):
     n_patches : int
     k_neighbors : int
     adjacency : torch.Tensor of shape ``(n_patches, k_neighbors)`` long
+    use_checkpoint : bool, default False
+        If True, wrap each MambaBlock+KNNAttention pair in
+        ``torch.utils.checkpoint.checkpoint`` (non-reentrant). Recomputes
+        forward during backward — required to fit training-mode F+B
+        memory at ``(2, 256, 1024, 128)`` activation shape on H200.
+        Only active during ``self.training=True``.
     """
 
     def __init__(
@@ -46,22 +95,20 @@ class BOLDcastDemo(nn.Module):
         n_patches: int,
         k_neighbors: int,
         adjacency: torch.Tensor,
+        use_checkpoint: bool = False,
     ) -> None:
         super().__init__()
         self.d_in = d_in
         self.d_model = d_model
         self.n_layers = n_layers
         self.n_patches = n_patches
+        self.use_checkpoint = use_checkpoint
         self.embed_proj = nn.Linear(d_in, d_model, bias=True)
         self.layers = nn.ModuleList()
-        if n_layers > 0:
-            from boldcast.models.temporal import MambaBlock
-
-            for _ in range(n_layers):
-                self.layers.append(MambaBlock(d_model=d_model))
-                self.layers.append(KNNAttention(
-                    d_model=d_model, k=k_neighbors, adjacency=adjacency
-                ))
+        for _ in range(n_layers):
+            self.layers.append(_MambaKnnPair(
+                d_model=d_model, k_neighbors=k_neighbors, adjacency=adjacency
+            ))
         self.final_norm = nn.LayerNorm(d_model)
         self.head = nn.Linear(d_model, d_in, bias=True)
 
@@ -84,10 +131,13 @@ class BOLDcastDemo(nn.Module):
                 f"input last-dim {x.shape[-1]} != d_in={self.d_in}"
             )
         h = self.embed_proj(x)  # (B, T, P, d_model)
+        use_cp = self.use_checkpoint and self.training
         for layer in self.layers:
-            # MambaBlock already adds the residual; KNNAttention does not.
-            if isinstance(layer, KNNAttention):
-                h = h + layer(h)
+            if use_cp:
+                h = _cast(
+                    torch.Tensor,
+                    checkpoint(layer, h, use_reentrant=False),
+                )
             else:
                 h = layer(h)
         h = _cast(torch.Tensor, self.final_norm(h))

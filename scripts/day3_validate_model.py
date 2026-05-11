@@ -107,45 +107,61 @@ def main() -> int:
         cache_path=str(cfg.tokenize.knn_cache),
     )
 
-    print("[day3] building BOLDcastDemo on cuda ...")
+    # Build the model with checkpointing ON — matches the canonical
+    # training recipe (BF16 + activation checkpointing) per
+    # docs/methods.md "Long-Context Mamba Backbone".
+    print("[day3] building BOLDcastDemo on cuda (use_checkpoint=True) ...")
+    n_patches = int(cfg.tokenize.n_patches_cortex)
     model = BOLDcastDemo(
         d_in=1,
         d_model=128,
         n_layers=4,
-        n_patches=int(cfg.tokenize.n_patches_cortex),
+        n_patches=n_patches,
         k_neighbors=int(cfg.tokenize.knn_k),
         adjacency=torch.from_numpy(np.asarray(adjacency)).long().cuda(),
+        use_checkpoint=True,
     ).cuda()
     n_params = sum(p.numel() for p in model.parameters())
     print(f"[day3]   params: {n_params/1e6:.3f} M")
 
-    x = torch.randn(
-        2, 256, int(cfg.tokenize.n_patches_cortex), 1, device="cuda"
-    )
+    # Warmup forward to prime mamba_ssm's selective-scan CUDA kernel
+    # compilation, then measure the canonical BF16 forward.
+    autocast = torch.amp.autocast  # type: ignore[attr-defined,unused-ignore]
+    x = torch.randn(2, 256, n_patches, 1, device="cuda")
+    model.eval()
+    with torch.no_grad(), autocast(device_type="cuda", dtype=torch.bfloat16):
+        _ = model(x)
+    torch.cuda.synchronize()
+
     torch.cuda.reset_peak_memory_stats()
-    torch.cuda.synchronize()
-    t0 = time.perf_counter()
-    out = model(x)
-    torch.cuda.synchronize()
-    dt = time.perf_counter() - t0
-    peak_gb = torch.cuda.max_memory_allocated() / 1024**3
+    with torch.no_grad(), autocast(device_type="cuda", dtype=torch.bfloat16):
+        torch.cuda.synchronize()
+        t0 = time.perf_counter()
+        out = model(x)
+        torch.cuda.synchronize()
+        dt = time.perf_counter() - t0
+    fwd_peak_gb = torch.cuda.max_memory_allocated() / 1024**3
     print(
         f"[day3] forward {tuple(x.shape)} -> {tuple(out.shape)} "
-        f"in {dt*1000:.1f} ms, peak forward memory {peak_gb:.2f} GB"
+        f"in {dt*1000:.1f} ms (BF16 autocast, post-warmup), "
+        f"peak forward memory {fwd_peak_gb:.2f} GB"
     )
 
-    # Forward+backward memory probe (training-mode acceptance criterion).
+    # Training-mode forward+backward under BF16 autocast + activation
+    # checkpointing. This is the regime acceptance is judged against.
+    model.train()
     x_b = torch.randn(
-        2, 256, int(cfg.tokenize.n_patches_cortex), 1,
-        device="cuda", requires_grad=True,
+        2, 256, n_patches, 1, device="cuda", requires_grad=True
     )
     torch.cuda.reset_peak_memory_stats()
-    out_b = model(x_b)
-    loss = out_b.pow(2).mean()
+    with autocast(device_type="cuda", dtype=torch.bfloat16):
+        out_b = model(x_b)
+        loss = out_b.pow(2).mean()
     loss.backward()
     fwd_bwd_gb = torch.cuda.max_memory_allocated() / 1024**3
     print(
-        f"[day3] forward+backward peak memory {fwd_bwd_gb:.2f} GB"
+        f"[day3] forward+backward peak memory {fwd_bwd_gb:.2f} GB "
+        "(BF16 autocast, activation checkpointing)"
     )
     return 0
 
