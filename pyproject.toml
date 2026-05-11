@@ -96,6 +96,13 @@ src = ["boldcast", "tests", "scripts", "benchmarks"]
 select = ["E", "F", "W", "I", "UP", "ANN", "NPY"]
 ignore = ["ANN101", "ANN102"]
 
+[tool.ruff.lint.per-file-ignores]
+# Validation scripts use a sys.path bootstrap so they self-locate when run
+# as ``python scripts/foo.py`` from any worktree (with or without an
+# editable boldcast install in the active env). The bootstrap necessarily
+# runs before the ``from boldcast...`` imports, which trips E402.
+"scripts/day*_*.py" = ["E402"]
+
 [tool.black]
 line-length = 100
 target-version = ["py310", "py311", "py312"]
@@ -107,7 +114,10 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-v --cov=boldcast --cov-report=term-missing"
+addopts = "-v --cov=boldcast --cov-report=term-missing -m 'not gpu'"
+markers = [
+    "gpu: requires a CUDA-capable GPU and the micromamba env (mamba-ssm / causal-conv1d). Skipped on login-node uv gates; run explicitly via `pytest -m gpu` on a compute node.",
+]
 
 [tool.coverage.run]
 source = ["boldcast"]

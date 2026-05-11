@@ -21,8 +21,23 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 import time
 from pathlib import Path
+
+# Bootstrap: make ``boldcast`` importable when this script is run as
+# ``python scripts/foo.py`` from any worktree, regardless of whether the
+# package is also installed editable into the active env. Inserts the repo
+# root (parent of scripts/) at the head of sys.path.
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
+# Auto-load ``{repo}/.env`` so HCP_ROOT and friends survive shell hops
+# (fresh compute-node sessions don't inherit the login-node env).
+from boldcast.utils.env import load_repo_dotenv  # noqa: E402
+
+load_repo_dotenv(_REPO_ROOT)
 
 import numpy as np
 import torch
