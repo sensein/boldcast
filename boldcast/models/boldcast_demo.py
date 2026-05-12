@@ -1,10 +1,13 @@
 """BOLDcast-Demo model: 4-layer interleaved Mamba + kNN spatial attention.
 
 Patch-shared embed and head; param count asserted in [0.5e6, 1.5e6] at
-construction (ADR 0004). The ``Mamba``-importing ``MambaBlock`` is
-imported lazily inside the constructor so this module can be loaded
-under uv (CPU-only) for non-Mamba code paths (embed/head shape tests,
-param-count audit at ``n_layers=0``).
+construction (ADR 0004). Head emits all forecasting horizons in parallel
+(``Linear(d_model, H * d_in)`` reshaped to ``(B, T, P, H, d_in)``); H axis
+is materialized even at H=1 for a shape-stable forward contract
+(ADR 0005 D2). The ``Mamba``-importing ``MambaBlock`` is imported lazily
+inside the constructor so this module can be loaded under uv (CPU-only)
+for non-Mamba code paths (embed/head shape tests, param-count audit at
+``n_layers=0``).
 
 Memory: ``use_checkpoint=True`` wraps each (MambaBlock + KNNAttention)
 pair in ``torch.utils.checkpoint.checkpoint(..., use_reentrant=False)``.
@@ -21,6 +24,7 @@ from __future__ import annotations
 
 # nn.Module.__call__ returns Any; cast() keeps mypy strict happy without
 # runtime overhead.
+from collections.abc import Sequence
 from typing import cast as _cast
 
 import torch
@@ -79,6 +83,10 @@ class BOLDcastDemo(nn.Module):
     n_patches : int
     k_neighbors : int
     adjacency : torch.Tensor of shape ``(n_patches, k_neighbors)`` long
+    horizons : Sequence[int]
+        Positive integer forecast offsets emitted by the head, in order.
+        Required (no default). The head produces ``len(horizons) * d_in``
+        scalars per token; ``forward`` reshapes to ``(B, T, P, H, d_in)``.
     use_checkpoint : bool, default False
         If True, wrap each MambaBlock+KNNAttention pair in
         ``torch.utils.checkpoint.checkpoint`` (non-reentrant). Recomputes
@@ -95,14 +103,25 @@ class BOLDcastDemo(nn.Module):
         n_patches: int,
         k_neighbors: int,
         adjacency: torch.Tensor,
+        horizons: Sequence[int],
         use_checkpoint: bool = False,
     ) -> None:
+        # Validate horizons before any nn.Module allocation so that a ValueError
+        # on invalid input doesn't leave a half-constructed module on the caller's
+        # exception frame (matters under DDP / hyperparameter sweeps).
+        horizons_t = tuple(int(h) for h in horizons)
+        if len(horizons_t) == 0:
+            raise ValueError("horizons must be non-empty")
+        if any(h <= 0 for h in horizons_t):
+            raise ValueError("horizons must be positive (got at least one h<=0)")
+
         super().__init__()
         self.d_in = d_in
         self.d_model = d_model
         self.n_layers = n_layers
         self.n_patches = n_patches
         self.use_checkpoint = use_checkpoint
+        self.horizons = horizons_t
         self.embed_proj = nn.Linear(d_in, d_model, bias=True)
         self.layers = nn.ModuleList()
         for _ in range(n_layers):
@@ -110,7 +129,7 @@ class BOLDcastDemo(nn.Module):
                 d_model=d_model, k_neighbors=k_neighbors, adjacency=adjacency
             ))
         self.final_norm = nn.LayerNorm(d_model)
-        self.head = nn.Linear(d_model, d_in, bias=True)
+        self.head = nn.Linear(d_model, len(self.horizons) * d_in, bias=True)
 
         # Param budget audit. ADR 0004 D1/D2/D4/D5: ~0.7M target for the
         # default 4-layer / d_model=128 / P=1024 / k=8 config; allow
@@ -145,5 +164,6 @@ class BOLDcastDemo(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         h = self.embed(x)
-        out: torch.Tensor = self.head(h)
-        return out
+        out_flat: torch.Tensor = self.head(h)
+        b, t, p, _ = out_flat.shape
+        return out_flat.view(b, t, p, len(self.horizons), self.d_in)

@@ -7,6 +7,7 @@ training scripts disambiguate without a string lookup on n_patches.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import cast as _cast
 
 import torch
@@ -19,7 +20,8 @@ __all__ = ["BaselineSchaefer400"]
 
 class BaselineSchaefer400(nn.Module):
     """Schaefer-400 baseline. Backbone identical to ``BOLDcastDemo``; only
-    the spatial token count differs (``P=400``)."""
+    the spatial token count differs (``P=400``). Constructor parameters
+    mirror BOLDcastDemo's, including the required ``horizons``."""
 
     def __init__(
         self,
@@ -28,6 +30,7 @@ class BaselineSchaefer400(nn.Module):
         n_layers: int,
         k_neighbors: int,
         adjacency: torch.Tensor,
+        horizons: Sequence[int],
         use_checkpoint: bool = False,
     ) -> None:
         super().__init__()
@@ -38,6 +41,7 @@ class BaselineSchaefer400(nn.Module):
             n_patches=400,
             k_neighbors=k_neighbors,
             adjacency=adjacency,
+            horizons=horizons,
             use_checkpoint=use_checkpoint,
         )
 

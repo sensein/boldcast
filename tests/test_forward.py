@@ -87,6 +87,7 @@ def test_boldcast_demo_param_count_in_budget() -> None:
         n_patches=1024,
         k_neighbors=8,
         adjacency=adjacency,
+        horizons=(1, 5),
     )
     n_params = sum(p.numel() for p in m.parameters())
     assert 0.5e6 <= n_params <= 1.5e6, (
@@ -95,7 +96,7 @@ def test_boldcast_demo_param_count_in_budget() -> None:
 
 
 def test_boldcast_demo_embed_returns_d_model() -> None:
-    """``embed(x)`` returns (B, T, P, d_model); ``forward(x)`` returns (B, T, P, d_in).
+    """``embed(x)`` returns (B, T, P, d_model); ``forward(x)`` returns (B, T, P, H, d_in).
 
     CPU-runnable using n_layers=0 (skip Mamba+kNN stack, exercise embed + head
     only) — this path doesn't touch boldcast.models.temporal at all and works
@@ -110,12 +111,13 @@ def test_boldcast_demo_embed_returns_d_model() -> None:
         n_patches=8,
         k_neighbors=4,
         adjacency=adjacency,
+        horizons=(1,),
     )
     x = torch.randn(2, 5, 8, 1)
     embed = m.embed(x)
     out = m(x)
     assert embed.shape == (2, 5, 8, 8)
-    assert out.shape == (2, 5, 8, 1)
+    assert out.shape == (2, 5, 8, 1, 1)
     assert torch.isfinite(out).all()
 
 
@@ -134,10 +136,11 @@ def test_boldcast_demo_full_forward_on_cuda() -> None:
         n_patches=1024,
         k_neighbors=8,
         adjacency=adjacency,
+        horizons=(1, 5),
     ).cuda()
     x = torch.randn(2, 256, 1024, 1, device="cuda")
     out = m(x)
-    assert out.shape == x.shape
+    assert out.shape == (2, 256, 1024, 2, 1)
     assert torch.isfinite(out).all()
 
 
@@ -148,7 +151,8 @@ def test_baseline_schaefer_param_count_in_budget() -> None:
 
     adjacency = _identity_adjacency(n_patches=400, k=8)
     m = BaselineSchaefer400(
-        d_in=1, d_model=128, n_layers=4, k_neighbors=8, adjacency=adjacency
+        d_in=1, d_model=128, n_layers=4, k_neighbors=8, adjacency=adjacency,
+        horizons=(1, 5),
     )
     n_params = sum(p.numel() for p in m.parameters())
     assert 0.5e6 <= n_params <= 1.5e6
@@ -162,8 +166,84 @@ def test_baseline_schaefer_forward_on_cuda() -> None:
         pytest.skip("CUDA not available")
     adjacency = _identity_adjacency(n_patches=400, k=8).cuda()
     m = BaselineSchaefer400(
-        d_in=1, d_model=128, n_layers=4, k_neighbors=8, adjacency=adjacency
+        d_in=1, d_model=128, n_layers=4, k_neighbors=8, adjacency=adjacency,
+        horizons=(1, 5),
     ).cuda()
     x = torch.randn(2, 256, 400, 1, device="cuda")
     out = m(x)
-    assert out.shape == x.shape
+    assert out.shape == (2, 256, 400, 2, 1)
+
+
+def test_boldcast_demo_forward_multi_horizon_shape() -> None:
+    """ADR 0005 D2: forward returns (B, T, P, H, d_in); H axis always present.
+
+    CPU-runnable with n_layers=0 (skips Mamba)."""
+    from boldcast.models.boldcast_demo import BOLDcastDemo
+
+    adjacency = _identity_adjacency(n_patches=8, k=4)
+    m = BOLDcastDemo(
+        d_in=1,
+        d_model=8,
+        n_layers=0,
+        n_patches=8,
+        k_neighbors=4,
+        adjacency=adjacency,
+        horizons=(1, 5),
+    )
+    x = torch.randn(2, 7, 8, 1)
+    out = m(x)
+    assert out.shape == (2, 7, 8, 2, 1)
+    assert torch.isfinite(out).all()
+
+
+def test_boldcast_demo_forward_single_horizon_preserves_h_axis() -> None:
+    """H axis present even at H=1 (ADR 0005 D2)."""
+    from boldcast.models.boldcast_demo import BOLDcastDemo
+
+    adjacency = _identity_adjacency(n_patches=8, k=4)
+    m = BOLDcastDemo(
+        d_in=1,
+        d_model=8,
+        n_layers=0,
+        n_patches=8,
+        k_neighbors=4,
+        adjacency=adjacency,
+        horizons=(1,),
+    )
+    x = torch.randn(2, 7, 8, 1)
+    out = m(x)
+    assert out.shape == (2, 7, 8, 1, 1)
+
+
+def test_boldcast_demo_rejects_empty_horizons() -> None:
+    """horizons=() must raise ValueError at construction (ADR 0005 D2)."""
+    from boldcast.models.boldcast_demo import BOLDcastDemo
+
+    adjacency = _identity_adjacency(n_patches=8, k=4)
+    with pytest.raises(ValueError, match=r"horizons must be non-empty"):
+        BOLDcastDemo(
+            d_in=1,
+            d_model=8,
+            n_layers=0,
+            n_patches=8,
+            k_neighbors=4,
+            adjacency=adjacency,
+            horizons=(),
+        )
+
+
+def test_boldcast_demo_rejects_nonpositive_horizons() -> None:
+    """A zero or negative horizon must raise ValueError at construction."""
+    from boldcast.models.boldcast_demo import BOLDcastDemo
+
+    adjacency = _identity_adjacency(n_patches=8, k=4)
+    with pytest.raises(ValueError, match=r"horizons must be positive"):
+        BOLDcastDemo(
+            d_in=1,
+            d_model=8,
+            n_layers=0,
+            n_patches=8,
+            k_neighbors=4,
+            adjacency=adjacency,
+            horizons=(1, 0),
+        )
