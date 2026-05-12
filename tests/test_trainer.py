@@ -86,11 +86,14 @@ def test_trainer_overfit_reduces_loss_on_cpu(tmp_path: Path) -> None:
     """Trainer.fit on a 4-window batch with a 0-layer model should
     measurably reduce loss on a tiny synthetic task.
 
-    The 0.7x threshold is calibrated for white-noise targets at horizon=5,
-    where the irreducible noise floor (var of the noise) constrains how
-    far MSE can drop. The point of this test is to prove the gradient
-    path is alive, not to verify convergence to zero — the GPU overfit
-    on real data (scripts/day4_overfit.py) gates on the < 1% threshold.
+    The 0.7x threshold is calibrated for AR(1) target data (rho=0.9, see
+    _SyntheticWindows). With i.i.d. noise the MSE floor would be var(target)
+    regardless of model capacity, making the threshold unreachable for a
+    purely linear-in-input n_layers=0 model. AR(1) gives the model a
+    learnable temporal correlation it can exploit. The point of this test
+    is to prove the gradient path is alive, not to verify convergence to
+    zero — the GPU overfit on real data (scripts/day4_overfit.py) gates
+    on the < 1% threshold.
     """
     _, _, loader, trainer = _build_tiny_setup(tmp_path)
     history = trainer.fit(loader, max_steps=50)
