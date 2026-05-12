@@ -5,7 +5,7 @@ Raw PyTorch — no Lightning. Day-5 DDP will wrap the model in
 DataLoader; nothing else about this class changes.
 
 Inner loop per step:
-    1. Pull next batch from itertools.cycle(dataloader).
+    1. Pull next batch from _infinite_loader(dataloader).
     2. Move tokens to device; add singleton d_in axis -> (B, T, P, 1).
     3. Build (B, T_valid, P, H, d_in) target via build_forecast_targets.
     4. Forward under BF16 autocast (when precision='bf16' on CUDA).
@@ -22,8 +22,7 @@ not needed for the n_layers=0 trainer test).
 
 from __future__ import annotations
 
-import itertools
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Iterator, Sequence
 from pathlib import Path
 from typing import Literal
 
@@ -33,6 +32,21 @@ from torch.utils.data import DataLoader
 
 from boldcast.training.loss import build_forecast_targets, forecasting_loss
 from boldcast.training.utils import JsonlLogger, save_checkpoint
+
+
+def _infinite_loader(
+    dataloader: DataLoader[dict[str, torch.Tensor]] | Iterable[dict[str, torch.Tensor]],
+) -> Iterator[dict[str, torch.Tensor]]:
+    """Yield batches forever, re-iterating ``dataloader`` each pass.
+
+    Unlike ``itertools.cycle`` (which caches every yielded element on the
+    first pass), this calls ``iter(dataloader)`` afresh each epoch. That
+    makes shuffle / ``DistributedSampler.set_epoch()`` re-seed correctly
+    on Day-5 DDP, and keeps memory flat across long runs.
+    """
+    while True:
+        yield from dataloader
+
 
 __all__ = ["Trainer"]
 
@@ -128,7 +142,7 @@ class Trainer:
         """
         self.model.train()
         history: dict[str, list[float]] = {"step": [], "loss": [], "lr": []}
-        data_iter = iter(itertools.cycle(dataloader))
+        data_iter = _infinite_loader(dataloader)
         try:
             for step in range(max_steps):
                 batch = next(data_iter)
@@ -179,14 +193,12 @@ class Trainer:
         tokens = batch["tokens"].to(self.device).unsqueeze(-1)  # (B, T, P, 1)
         targets = build_forecast_targets(tokens, self.horizons)
         self.optimizer.zero_grad(set_to_none=True)
-        use_bf16 = self.precision == "bf16" and self.device.type == "cuda"
-        if use_bf16:
-            with autocast(device_type="cuda", dtype=torch.bfloat16):
-                pred_full: torch.Tensor = self.model(tokens)
-                pred = pred_full[:, : targets.shape[1]]
-                loss = forecasting_loss(pred, targets)
-        else:
-            pred_full = self.model(tokens)
+        with autocast(
+            device_type="cuda",
+            dtype=torch.bfloat16,
+            enabled=(self.precision == "bf16" and self.device.type == "cuda"),
+        ):
+            pred_full: torch.Tensor = self.model(tokens)
             pred = pred_full[:, : targets.shape[1]]
             loss = forecasting_loss(pred, targets)
 
