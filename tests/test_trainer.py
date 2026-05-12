@@ -14,6 +14,7 @@ import torch
 from boldcast.models.boldcast_demo import BOLDcastDemo
 from boldcast.training.optim import build_optimizer
 from boldcast.training.trainer import Trainer
+from boldcast.training.utils import seed_everything
 from torch import nn
 from torch.utils.data import DataLoader, Dataset
 
@@ -58,6 +59,7 @@ def _build_tiny_setup(
     tmp_path: Path,
     horizons: tuple[int, ...] = (1, 5),
 ) -> tuple[BOLDcastDemo, torch.optim.AdamW, DataLoader[dict[str, torch.Tensor]], Trainer]:
+    seed_everything(3)
     n_patches, k = 8, 4
     adj = _identity_adjacency(n_patches, k)
     model = BOLDcastDemo(
