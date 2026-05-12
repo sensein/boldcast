@@ -74,3 +74,22 @@ def test_save_checkpoint_round_trip(tmp_path: Path) -> None:
     fresh.load_state_dict(loaded["model"])
     for p_orig, p_fresh in zip(model.parameters(), fresh.parameters()):
         assert torch.equal(p_orig, p_fresh)
+
+
+def test_jsonl_logger_context_manager(tmp_path: Path) -> None:
+    """`with JsonlLogger(...) as log:` writes the record and closes on exit."""
+    path = tmp_path / "log.jsonl"
+    with JsonlLogger(path) as log:
+        log.write({"step": 0, "loss": 0.5})
+    assert path.read_text().strip() != ""
+    assert log._fh.closed
+
+
+def test_save_checkpoint_creates_parent_dirs(tmp_path: Path) -> None:
+    """save_checkpoint creates intermediate directories that don't exist."""
+    model = nn.Linear(2, 1)
+    opt = torch.optim.SGD(model.parameters(), lr=1e-2)
+    nested = tmp_path / "a" / "b" / "c" / "ckpt.pt"
+    assert not nested.parent.exists()
+    save_checkpoint(model, opt, step=0, path=nested)
+    assert nested.exists()

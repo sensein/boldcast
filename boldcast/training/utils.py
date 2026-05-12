@@ -6,6 +6,8 @@ All CPU-runnable. Used by the Day-4 Trainer and the Day-4 overfit script.
 from __future__ import annotations
 
 import json
+import logging
+import os
 import random
 from pathlib import Path
 from types import TracebackType
@@ -17,6 +19,8 @@ from torch import nn
 
 __all__ = ["JsonlLogger", "save_checkpoint", "seed_everything"]
 
+_LOGGER = logging.getLogger(__name__)
+
 
 def seed_everything(seed: int) -> None:
     """Seed Python, NumPy, and PyTorch RNGs. CUDA seed is set if available.
@@ -24,7 +28,8 @@ def seed_everything(seed: int) -> None:
     Note: ``mamba-ssm``'s selective-scan CUDA kernel is not bit-deterministic
     on GPU (methods.md "Reproducibility caveats"); this seeds the PyTorch
     initializer state but does not produce bit-identical training runs
-    across hardware.
+    across hardware. Logs ``CUBLAS_WORKSPACE_CONFIG`` at DEBUG level for
+    diagnosability when reproducibility breaks on a CUDA host.
 
     Parameters
     ----------
@@ -36,6 +41,10 @@ def seed_everything(seed: int) -> None:
     torch.manual_seed(seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
+    _LOGGER.debug(
+        "CUBLAS_WORKSPACE_CONFIG=%s",
+        os.environ.get("CUBLAS_WORKSPACE_CONFIG", "<not set>"),
+    )
 
 
 def save_checkpoint(
