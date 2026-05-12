@@ -112,6 +112,7 @@ def main() -> int:
     # docs/methods.md "Long-Context Mamba Backbone".
     print("[day3] building BOLDcastDemo on cuda (use_checkpoint=True) ...")
     n_patches = int(cfg.tokenize.n_patches_cortex)
+    horizons = tuple(int(h) for h in cfg.train.forecasting_horizons)
     model = BOLDcastDemo(
         d_in=1,
         d_model=128,
@@ -119,6 +120,7 @@ def main() -> int:
         n_patches=n_patches,
         k_neighbors=int(cfg.tokenize.knn_k),
         adjacency=torch.from_numpy(np.asarray(adjacency)).long().cuda(),
+        horizons=horizons,
         use_checkpoint=True,
     ).cuda()
     n_params = sum(p.numel() for p in model.parameters())
@@ -140,6 +142,9 @@ def main() -> int:
         out = model(x)
         torch.cuda.synchronize()
         dt = time.perf_counter() - t0
+    assert out.shape == (2, 256, n_patches, len(horizons), 1), (
+        f"unexpected forward output shape {tuple(out.shape)}"
+    )
     fwd_peak_gb = torch.cuda.max_memory_allocated() / 1024**3
     print(
         f"[day3] forward {tuple(x.shape)} -> {tuple(out.shape)} "
