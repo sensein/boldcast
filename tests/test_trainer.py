@@ -138,3 +138,87 @@ def test_trainer_single_horizon_runs_to_completion(tmp_path: Path) -> None:
     _, _, loader, trainer = _build_tiny_setup(tmp_path, horizons=(1,))
     history = trainer.fit(loader, max_steps=5)
     assert len(history["loss"]) == 5
+
+
+def test_trainer_writes_periodic_checkpoint(tmp_path: Path) -> None:
+    """ckpt_every=N triggers save_checkpoint at steps N, 2N, ..."""
+    _, _, loader, _ = _build_tiny_setup(tmp_path)
+    # Rebuild trainer with ckpt_every set.
+    n_patches, k = 8, 4
+    adj = _identity_adjacency(n_patches, k)
+    seed_everything(0)
+    model = BOLDcastDemo(
+        d_in=1, d_model=8, n_layers=0,
+        n_patches=n_patches, k_neighbors=k,
+        adjacency=adj, horizons=(1, 5),
+    )
+    opt = build_optimizer(model, lr=3e-3, weight_decay=0.0, betas=(0.9, 0.95))
+    trainer = Trainer(
+        model=model,
+        optimizer=opt,
+        scheduler=None,
+        device=torch.device("cpu"),
+        horizons=(1, 5),
+        precision="fp32",
+        log_every=10,
+        ckpt_every=3,
+        out_dir=tmp_path,
+    )
+    trainer.fit(loader, max_steps=6)
+    assert (tmp_path / "ckpt_step3.pt").exists()
+    assert (tmp_path / "ckpt_step6.pt").exists()
+
+
+def test_trainer_steps_scheduler(tmp_path: Path) -> None:
+    """scheduler.step() is called after each optimizer.step()."""
+    n_patches, k = 8, 4
+    adj = _identity_adjacency(n_patches, k)
+    seed_everything(0)
+    model = BOLDcastDemo(
+        d_in=1, d_model=8, n_layers=0,
+        n_patches=n_patches, k_neighbors=k,
+        adjacency=adj, horizons=(1, 5),
+    )
+    opt = build_optimizer(model, lr=3e-3, weight_decay=0.0, betas=(0.9, 0.95))
+    # StepLR halves the LR every step, so we can confirm it ran.
+    sched = torch.optim.lr_scheduler.StepLR(opt, step_size=1, gamma=0.5)
+    ds = _SyntheticWindows(n=4, T=16, P=n_patches, seed=0)
+    loader = DataLoader(ds, batch_size=4, shuffle=False, num_workers=0)
+    trainer = Trainer(
+        model=model,
+        optimizer=opt,
+        scheduler=sched,
+        device=torch.device("cpu"),
+        horizons=(1, 5),
+        precision="fp32",
+        log_every=10,
+        out_dir=tmp_path,
+    )
+    history = trainer.fit(loader, max_steps=3)
+    # After 3 steps with gamma=0.5: lr should be 3e-3 * 0.5^3 = 3.75e-4
+    assert history["lr"][-1] < history["lr"][0]
+    assert history["lr"][-1] == pytest.approx(3e-3 * 0.5 ** 3)
+
+
+def test_trainer_rejects_horizon_mismatch_with_model(tmp_path: Path) -> None:
+    """Trainer.horizons must match model.horizons."""
+    n_patches, k = 8, 4
+    adj = _identity_adjacency(n_patches, k)
+    seed_everything(0)
+    model = BOLDcastDemo(
+        d_in=1, d_model=8, n_layers=0,
+        n_patches=n_patches, k_neighbors=k,
+        adjacency=adj, horizons=(1, 5),
+    )
+    opt = build_optimizer(model, lr=3e-3, weight_decay=0.0, betas=(0.9, 0.95))
+    with pytest.raises(ValueError, match=r"horizons.*must match.*horizons"):
+        Trainer(
+            model=model,
+            optimizer=opt,
+            scheduler=None,
+            device=torch.device("cpu"),
+            horizons=(1,),                  # mismatch with model's (1, 5)
+            precision="fp32",
+            log_every=10,
+            out_dir=tmp_path,
+        )

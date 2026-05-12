@@ -40,9 +40,10 @@ def _infinite_loader(
     """Yield batches forever, re-iterating ``dataloader`` each pass.
 
     Unlike ``itertools.cycle`` (which caches every yielded element on the
-    first pass), this calls ``iter(dataloader)`` afresh each epoch. That
-    makes shuffle / ``DistributedSampler.set_epoch()`` re-seed correctly
-    on Day-5 DDP, and keeps memory flat across long runs.
+    first pass), this calls ``iter(dataloader)`` afresh each epoch, keeping
+    memory flat across long runs. Note: a Day-5 DDP caller must explicitly
+    call ``sampler.set_epoch(epoch)`` before each pass — this loop has no
+    epoch counter and does NOT trigger ``DistributedSampler``'s re-seed.
     """
     while True:
         yield from dataloader
@@ -106,6 +107,15 @@ class Trainer:
         self.scheduler = scheduler
         self.device = device
         self.horizons = tuple(int(h) for h in horizons)
+        # Catch a common config-sweep bug: passing different `horizons` to
+        # Trainer than the model was constructed with would silently broadcast
+        # through F.mse_loss with a UserWarning. Fail loudly instead.
+        model_horizons = getattr(model, "horizons", None)
+        if model_horizons is not None and tuple(model_horizons) != self.horizons:
+            raise ValueError(
+                f"Trainer.horizons={self.horizons!r} must match "
+                f"model.horizons={tuple(model_horizons)!r}"
+            )
         self.grad_clip_norm = grad_clip_norm
         self.precision = precision
         self.log_every = log_every
@@ -209,9 +219,15 @@ class Trainer:
 
         loss.backward()  # type: ignore[no-untyped-call]
         if self.grad_clip_norm is not None:
-            torch.nn.utils.clip_grad_norm_(
+            grad_norm_t = torch.nn.utils.clip_grad_norm_(
                 self.model.parameters(), self.grad_clip_norm
             )
+        else:
+            # Compute the total norm without clipping (for logging only).
+            grad_norm_t = torch.nn.utils.clip_grad_norm_(
+                self.model.parameters(), float("inf")
+            )
+        grad_norm = float(grad_norm_t)
         self.optimizer.step()
         if self.scheduler is not None:
             self.scheduler.step()
@@ -219,5 +235,10 @@ class Trainer:
         lr = float(self.optimizer.param_groups[0]["lr"])
         loss_value = float(loss.item())
         if self._logger is not None:
-            self._logger.write({"step": step, "loss": loss_value, "lr": lr})
+            self._logger.write({
+                "step": step,
+                "loss": loss_value,
+                "lr": lr,
+                "grad_norm": grad_norm,
+            })
         return loss_value, lr
