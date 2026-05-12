@@ -1,0 +1,76 @@
+"""CPU unit tests for boldcast.training.utils."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import torch
+from boldcast.training.utils import JsonlLogger, save_checkpoint, seed_everything
+from torch import nn
+
+
+def test_seed_everything_is_deterministic_for_torch_randn() -> None:
+    seed_everything(123)
+    a = torch.randn(5)
+    seed_everything(123)
+    b = torch.randn(5)
+    assert torch.equal(a, b)
+
+
+def test_seed_everything_different_seeds_differ() -> None:
+    seed_everything(123)
+    a = torch.randn(5)
+    seed_everything(456)
+    b = torch.randn(5)
+    assert not torch.equal(a, b)
+
+
+def test_jsonl_logger_writes_one_line_per_record(tmp_path: Path) -> None:
+    log = JsonlLogger(tmp_path / "log.jsonl")
+    log.write({"step": 0, "loss": 1.5, "lr": 3e-4})
+    log.write({"step": 1, "loss": 0.7, "lr": 3e-4})
+    log.close()
+
+    lines = (tmp_path / "log.jsonl").read_text().splitlines()
+    assert len(lines) == 2
+    assert json.loads(lines[0]) == {"step": 0, "loss": 1.5, "lr": 3e-4}
+    assert json.loads(lines[1]) == {"step": 1, "loss": 0.7, "lr": 3e-4}
+
+
+def test_jsonl_logger_appends_to_existing_file(tmp_path: Path) -> None:
+    path = tmp_path / "log.jsonl"
+    log1 = JsonlLogger(path)
+    log1.write({"step": 0, "loss": 1.0})
+    log1.close()
+
+    log2 = JsonlLogger(path)
+    log2.write({"step": 1, "loss": 0.5})
+    log2.close()
+
+    lines = path.read_text().splitlines()
+    assert len(lines) == 2
+
+
+def test_save_checkpoint_round_trip(tmp_path: Path) -> None:
+    model = nn.Linear(4, 2)
+    opt = torch.optim.AdamW(model.parameters(), lr=1e-3)
+    # Take one step so the optimizer has state to save.
+    x = torch.randn(3, 4)
+    loss = model(x).pow(2).mean()
+    loss.backward()
+    opt.step()
+
+    ckpt_path = tmp_path / "ckpt.pt"
+    save_checkpoint(model, opt, step=42, path=ckpt_path)
+
+    assert ckpt_path.exists()
+    loaded = torch.load(ckpt_path, weights_only=False)
+    assert loaded["step"] == 42
+    assert "model" in loaded
+    assert "optimizer" in loaded
+    # Reload into a fresh model and assert weight equality.
+    fresh = nn.Linear(4, 2)
+    fresh.load_state_dict(loaded["model"])
+    for p_orig, p_fresh in zip(model.parameters(), fresh.parameters()):
+        assert torch.equal(p_orig, p_fresh)
