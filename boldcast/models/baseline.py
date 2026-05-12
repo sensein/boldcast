@@ -20,7 +20,8 @@ __all__ = ["BaselineSchaefer400"]
 
 class BaselineSchaefer400(nn.Module):
     """Schaefer-400 baseline. Backbone identical to ``BOLDcastDemo``; only
-    the spatial token count differs (``P=400``)."""
+    the spatial token count differs (``P=400``). Constructor parameters
+    mirror BOLDcastDemo's, including the required ``horizons``."""
 
     def __init__(
         self,

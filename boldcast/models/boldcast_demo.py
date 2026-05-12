@@ -106,12 +106,22 @@ class BOLDcastDemo(nn.Module):
         horizons: Sequence[int],
         use_checkpoint: bool = False,
     ) -> None:
+        # Validate horizons before any nn.Module allocation so that a ValueError
+        # on invalid input doesn't leave a half-constructed module on the caller's
+        # exception frame (matters under DDP / hyperparameter sweeps).
+        horizons_t = tuple(int(h) for h in horizons)
+        if len(horizons_t) == 0:
+            raise ValueError("horizons must be non-empty")
+        if any(h <= 0 for h in horizons_t):
+            raise ValueError("horizons must be positive (got at least one h<=0)")
+
         super().__init__()
         self.d_in = d_in
         self.d_model = d_model
         self.n_layers = n_layers
         self.n_patches = n_patches
         self.use_checkpoint = use_checkpoint
+        self.horizons = horizons_t
         self.embed_proj = nn.Linear(d_in, d_model, bias=True)
         self.layers = nn.ModuleList()
         for _ in range(n_layers):
@@ -119,11 +129,6 @@ class BOLDcastDemo(nn.Module):
                 d_model=d_model, k_neighbors=k_neighbors, adjacency=adjacency
             ))
         self.final_norm = nn.LayerNorm(d_model)
-        self.horizons = tuple(int(h) for h in horizons)
-        if len(self.horizons) == 0:
-            raise ValueError("horizons must be non-empty")
-        if any(h <= 0 for h in self.horizons):
-            raise ValueError("horizons must be positive")
         self.head = nn.Linear(d_model, len(self.horizons) * d_in, bias=True)
 
         # Param budget audit. ADR 0004 D1/D2/D4/D5: ~0.7M target for the

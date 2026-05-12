@@ -213,3 +213,37 @@ def test_boldcast_demo_forward_single_horizon_preserves_h_axis() -> None:
     x = torch.randn(2, 7, 8, 1)
     out = m(x)
     assert out.shape == (2, 7, 8, 1, 1)
+
+
+def test_boldcast_demo_rejects_empty_horizons() -> None:
+    """horizons=() must raise ValueError at construction (ADR 0005 D2)."""
+    from boldcast.models.boldcast_demo import BOLDcastDemo
+
+    adjacency = _identity_adjacency(n_patches=8, k=4)
+    with pytest.raises(ValueError, match=r"horizons must be non-empty"):
+        BOLDcastDemo(
+            d_in=1,
+            d_model=8,
+            n_layers=0,
+            n_patches=8,
+            k_neighbors=4,
+            adjacency=adjacency,
+            horizons=(),
+        )
+
+
+def test_boldcast_demo_rejects_nonpositive_horizons() -> None:
+    """A zero or negative horizon must raise ValueError at construction."""
+    from boldcast.models.boldcast_demo import BOLDcastDemo
+
+    adjacency = _identity_adjacency(n_patches=8, k=4)
+    with pytest.raises(ValueError, match=r"horizons must be positive"):
+        BOLDcastDemo(
+            d_in=1,
+            d_model=8,
+            n_layers=0,
+            n_patches=8,
+            k_neighbors=4,
+            adjacency=adjacency,
+            horizons=(1, 0),
+        )
