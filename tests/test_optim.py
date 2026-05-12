@@ -98,3 +98,22 @@ def test_build_scheduler_rejects_unknown() -> None:
         build_scheduler(
             opt, schedule="exponential", warmup_steps=10, max_steps=100
         )
+
+
+def test_build_optimizer_excludes_frozen_params() -> None:
+    """Params with requires_grad=False must not appear in any optimizer group."""
+    model = _toy_model()
+    # Freeze the first Linear's weight (a 2D param that would otherwise go to decay).
+    first_linear = list(model.children())[0]
+    first_linear.weight.requires_grad_(False)
+
+    opt = build_optimizer(
+        model, lr=3e-4, weight_decay=0.05, betas=(0.9, 0.95)
+    )
+    n_in_opt = sum(len(g["params"]) for g in opt.param_groups)
+    n_trainable = sum(1 for p in model.parameters() if p.requires_grad)
+    assert n_in_opt == n_trainable
+
+    # Verify the frozen param is not in any group.
+    all_opt_params = [p for g in opt.param_groups for p in g["params"]]
+    assert all(p is not first_linear.weight for p in all_opt_params)
