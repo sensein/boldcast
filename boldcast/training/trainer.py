@@ -1,19 +1,20 @@
-"""Single-GPU Trainer class for Day 4 (ADR 0005 D3).
+"""Single-GPU / DDP Trainer class (Day 4 + Day 5, ADR 0005 D3).
 
-Raw PyTorch — no Lightning. Day-5 DDP will wrap the model in
-``DistributedDataParallel`` and pass a ``DistributedSampler``-driven
-DataLoader; nothing else about this class changes.
+Raw PyTorch — no Lightning. Day-5 DDP wraps the model in
+``DistributedDataParallel`` and passes a ``DistributedSampler``-driven
+DataLoader together with the ``sampler`` kwarg to ``fit()``.
 
 Inner loop per step:
-    1. Pull next batch from _infinite_loader(dataloader).
+    1. Pull next batch from _infinite_loader_with_epoch(dataloader, sampler).
     2. Move tokens to device; add singleton d_in axis -> (B, T, P, 1).
     3. Build (B, T_valid, P, H, d_in) target via build_forecast_targets.
     4. Forward under BF16 autocast (when precision='bf16' on CUDA).
     5. Slice prediction to T_valid positions; compute MSE.
     6. NaN guard: raise RuntimeError if loss is not finite.
     7. Backward, optional grad-clip, optimizer.step, optional scheduler.step.
-    8. Append {step, loss, lr} to stdout (every log_every) + JSONL.
-    9. Optional checkpoint every ckpt_every steps.
+    8. All-reduce loss across ranks (no-op when not distributed).
+    9. Append {step, loss, lr} to stdout (every log_every, rank-0 only) + JSONL.
+    10. Optional checkpoint every ckpt_every steps (rank-0 only).
 
 BF16 does NOT require GradScaler — that's FP16 only. CPU precision='fp32'
 disables autocast entirely (PyTorch's BF16 CPU support is incomplete and
@@ -27,29 +28,59 @@ from pathlib import Path
 from typing import Literal
 
 import torch
+import torch.distributed as dist
 from torch import nn
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Sampler
 
+from boldcast.training.ddp import is_rank_zero
 from boldcast.training.loss import build_forecast_targets, forecasting_loss
 from boldcast.training.utils import JsonlLogger, save_checkpoint
 
 
-def _infinite_loader(
+def _all_reduce_mean(value: torch.Tensor) -> torch.Tensor:
+    """Average a scalar tensor across all ranks. No-op when not distributed."""
+    if dist.is_initialized():
+        dist.all_reduce(value, op=dist.ReduceOp.AVG)
+    return value
+
+
+def _infinite_loader_with_epoch(
     dataloader: DataLoader[dict[str, torch.Tensor]] | Iterable[dict[str, torch.Tensor]],
+    sampler: Sampler[int] | None,
 ) -> Iterator[dict[str, torch.Tensor]]:
-    """Yield batches forever, re-iterating ``dataloader`` each pass.
+    """Yield batches forever, calling ``sampler.set_epoch(epoch)`` each cycle.
 
     Unlike ``itertools.cycle`` (which caches every yielded element on the
     first pass), this calls ``iter(dataloader)`` afresh each epoch, keeping
-    memory flat across long runs. Note: a Day-5 DDP caller must explicitly
-    call ``sampler.set_epoch(epoch)`` before each pass — this loop has no
-    epoch counter and does NOT trigger ``DistributedSampler``'s re-seed.
+    memory flat across long runs.
+
+    If ``sampler`` is provided and has a ``set_epoch`` method (as
+    ``DistributedSampler`` does), it is called with the current epoch index
+    before each cycle — required so each rank sees a different shuffle order
+    every epoch in DDP training.
+
+    Parameters
+    ----------
+    dataloader
+        Any iterable of ``{str: Tensor}`` dicts.
+    sampler
+        Optional sampler to call ``set_epoch`` on each cycle.  Pass
+        ``None`` for single-GPU / no-shuffle training.
     """
+    epoch = 0
     while True:
+        if sampler is not None and hasattr(sampler, "set_epoch"):
+            sampler.set_epoch(epoch)
         yield from dataloader
+        epoch += 1
 
 
 __all__ = ["Trainer"]
+
+# Note: the prior `_infinite_loader(dataloader)` (Day-4) was renamed to
+# `_infinite_loader_with_epoch(dataloader, sampler)` for the Day-5 DDP
+# set_epoch hook. No external callers — the rename is breaking but
+# contained.
 
 # torch.amp.autocast isn't in torch's typed exports; alias with the same
 # `unused-ignore` form as scripts/day3_validate_model.py so the file passes
@@ -87,6 +118,14 @@ class Trainer:
         ``None`` disables JSONL + checkpoint output. Otherwise the JSONL
         is at ``out_dir / "loss_log.jsonl"`` and periodic ckpts at
         ``out_dir / "ckpt_step{step}.pt"``.
+
+    Notes
+    -----
+    For DDP training, ``boldcast.training.ddp.init_distributed()`` must be
+    called BEFORE constructing the Trainer. Rank-0 status is captured in
+    ``__init__`` and used to gate stdout, JSONL writes, and checkpoint
+    saves. Constructing the Trainer before init means all ranks will
+    behave as rank-0 (and corrupt the shared JSONL / ckpt files).
     """
 
     def __init__(
@@ -121,14 +160,20 @@ class Trainer:
         self.log_every = log_every
         self.ckpt_every = ckpt_every
         self.out_dir = Path(out_dir) if out_dir is not None else None
+        # Capture rank at init time so monkeypatching is straightforward.
+        self._is_rank_zero: bool = is_rank_zero()
         self._logger: JsonlLogger | None = None
-        if self.out_dir is not None:
+        if self.out_dir is not None and self._is_rank_zero:
             self._logger = JsonlLogger(self.out_dir / "loss_log.jsonl")
 
     def fit(
         self,
         dataloader: DataLoader[dict[str, torch.Tensor]] | Iterable[dict[str, torch.Tensor]],
         max_steps: int,
+        *,
+        sampler: Sampler[int] | None = None,
+        val_loader: DataLoader[dict[str, torch.Tensor]] | None = None,  # Task 4
+        val_every: int | None = None,  # Task 4
     ) -> dict[str, list[float]]:
         """Run ``max_steps`` training iterations.
 
@@ -143,6 +188,16 @@ class Trainer:
             canonical source; bare iterables work for tests.
         max_steps
             Number of gradient steps to take.
+        sampler
+            Optional ``DistributedSampler`` (or any object with
+            ``set_epoch(int)``). When provided, ``set_epoch`` is called at
+            the start of every epoch cycle so each DDP rank sees a
+            different shuffle order. Ignored in single-GPU mode.
+        val_loader
+            Reserved for Task 4 (periodic validation loop). Accepted here
+            so Task 4's diff is minimal; not yet wired.
+        val_every
+            Reserved for Task 4. Accepted but not yet used.
 
         Returns
         -------
@@ -150,9 +205,13 @@ class Trainer:
             Keys ``"step"``, ``"loss"``, ``"lr"``; each list has length
             ``max_steps``.
         """
+        # Suppress unused-param warnings for Task-4 reserved args.
+        _ = val_loader
+        _ = val_every
+
         self.model.train()
         history: dict[str, list[float]] = {"step": [], "loss": [], "lr": []}
-        data_iter = _infinite_loader(dataloader)
+        data_iter = _infinite_loader_with_epoch(dataloader, sampler)
         try:
             for step in range(max_steps):
                 batch = next(data_iter)
@@ -161,17 +220,21 @@ class Trainer:
                 history["loss"].append(loss_value)
                 history["lr"].append(lr_value)
                 if step % self.log_every == 0 or step == max_steps - 1:
-                    print(
-                        f"[trainer] step={step:>5d}  "
-                        f"loss={loss_value:.6f}  lr={lr_value:.2e}"
-                    )
+                    if self._is_rank_zero:
+                        print(
+                            f"[trainer] step={step:>5d}  "
+                            f"loss={loss_value:.6f}  lr={lr_value:.2e}"
+                        )
                 if (
-                    self.ckpt_every is not None
+                    self._is_rank_zero
+                    and self.ckpt_every is not None
                     and self.out_dir is not None
                     and (step + 1) % self.ckpt_every == 0
                 ):
+                    # Unwrap DDP module before checkpointing.
+                    raw_model = getattr(self.model, "module", self.model)
                     save_checkpoint(
-                        self.model,
+                        raw_model,
                         self.optimizer,
                         step=step + 1,
                         path=self.out_dir / f"ckpt_step{step + 1}.pt",
@@ -217,7 +280,7 @@ class Trainer:
                 f"non-finite loss at step {step}: {loss.item()}"
             )
 
-        loss.backward()  # type: ignore[no-untyped-call]
+        loss.backward()  # type: ignore[no-untyped-call,unused-ignore]
         if self.grad_clip_norm is not None:
             grad_norm_t = torch.nn.utils.clip_grad_norm_(
                 self.model.parameters(), self.grad_clip_norm
@@ -233,7 +296,10 @@ class Trainer:
             self.scheduler.step()
 
         lr = float(self.optimizer.param_groups[0]["lr"])
-        loss_value = float(loss.item())
+        # Average loss across ranks for consistent logging; no-op when not
+        # distributed.  Detached clone avoids touching the gradient graph.
+        reduced = _all_reduce_mean(loss.detach().clone())
+        loss_value = float(reduced.item())
         if self._logger is not None:
             self._logger.write({
                 "step": step,
