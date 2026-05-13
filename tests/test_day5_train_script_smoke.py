@@ -51,3 +51,32 @@ def test_day5_script_help_works() -> None:
         assert flag in result.stdout, (
             f"Expected {flag} in --help output. Got:\n{result.stdout}"
         )
+
+
+def test_day5_sh_script_is_valid_bash() -> None:
+    """Day-5 SLURM .sh script parses cleanly and contains key directives."""
+    sh = REPO_ROOT / "scripts" / "day5_train_boldcast.sh"
+    # bash -n: parse-only check
+    result = subprocess.run(
+        ["bash", "-n", str(sh)], capture_output=True, text=True, timeout=10,
+    )
+    assert result.returncode == 0, (
+        f"bash -n failed: stderr={result.stderr}"
+    )
+    content = sh.read_text()
+    # Required SBATCH directives
+    for directive in [
+        "--partition=mit_normal_gpu",
+        "--gres=gpu:h200:2",
+        "--cpus-per-task=16",
+        "--mem=128G",
+        "--time=08:00:00",
+    ]:
+        assert directive in content, f"Missing SBATCH directive: {directive}"
+    # Required body
+    assert "torchrun" in content
+    assert "--nproc-per-node=2" in content
+    assert "scripts/day5_train_boldcast.py" in content
+    assert "micromamba activate" in content
+    assert "set +u" in content and "set -u" in content
+    assert "PYTHONUNBUFFERED" in content
