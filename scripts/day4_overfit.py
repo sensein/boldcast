@@ -96,6 +96,13 @@ def main() -> int:
     p.add_argument("--config", default="configs/demo.yaml")
     p.add_argument("--max-steps", type=int, default=1000)
     p.add_argument("--out-dir", default="results/day4_overfit")
+    p.add_argument(
+        "--lr",
+        type=float,
+        default=None,
+        help="Override cfg.train.lr. Default uses config "
+             "(canonical Day-4 run passes --lr 1e-3 + --max-steps 3000).",
+    )
     args = p.parse_args()
 
     cfg = OmegaConf.load(args.config)
@@ -192,10 +199,12 @@ def main() -> int:
     n_params = sum(p.numel() for p in model.parameters())
     print(f"[day4]   params: {n_params/1e6:.3f} M")
 
-    # Optimizer: cfg.train.lr, but override weight_decay=0 (ADR 0005 D6).
+    # Optimizer: cfg.train.lr (or --lr override), weight_decay=0 (ADR 0005 D6).
+    lr_used = float(args.lr) if args.lr is not None else float(cfg.train.lr)
+    print(f"[day4] optimizer lr = {lr_used:.2e}")
     optimizer = build_optimizer(
         model,
-        lr=float(cfg.train.lr),
+        lr=lr_used,
         weight_decay=0.0,                          # OVERRIDE
         betas=(float(cfg.train.beta1), float(cfg.train.beta2)),
     )
