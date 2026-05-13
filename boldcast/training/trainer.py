@@ -194,10 +194,12 @@ class Trainer:
             the start of every epoch cycle so each DDP rank sees a
             different shuffle order. Ignored in single-GPU mode.
         val_loader
-            Reserved for Task 4 (periodic validation loop). Accepted here
-            so Task 4's diff is minimal; not yet wired.
+            Optional held-out validation DataLoader. When provided
+            together with ``val_every``, ``_eval`` runs every
+            ``val_every`` steps; results land in ``history['val_step']``
+            and ``history['val_loss']``.
         val_every
-            Reserved for Task 4. Accepted but not yet used.
+            Validation cadence (steps). Pair with ``val_loader``.
 
         Returns
         -------
@@ -205,12 +207,14 @@ class Trainer:
             Keys ``"step"``, ``"loss"``, ``"lr"``; each list has length
             ``max_steps``.
         """
-        # Suppress unused-param warnings for Task-4 reserved args.
-        _ = val_loader
-        _ = val_every
-
         self.model.train()
-        history: dict[str, list[float]] = {"step": [], "loss": [], "lr": []}
+        history: dict[str, list[float]] = {
+            "step": [],
+            "loss": [],
+            "lr": [],
+            "val_step": [],
+            "val_loss": [],
+        }
         data_iter = _infinite_loader_with_epoch(dataloader, sampler)
         try:
             for step in range(max_steps):
@@ -239,10 +243,98 @@ class Trainer:
                         step=step + 1,
                         path=self.out_dir / f"ckpt_step{step + 1}.pt",
                     )
+                if val_loader is not None and val_every is not None:
+                    if (step + 1) % val_every == 0:
+                        val_loss = self._eval(val_loader)
+                        history["val_step"].append(float(step))
+                        history["val_loss"].append(val_loss)
+                        if self._is_rank_zero:
+                            print(
+                                f"[trainer] val_step={step:>5d}  "
+                                f"val_loss={val_loss:.6f}"
+                            )
+                            if self._logger is not None:
+                                self._logger.write(
+                                    {"step": step, "val_loss": val_loss}
+                                )
         finally:
             if self._logger is not None:
                 self._logger.close()
         return history
+
+    def _eval(
+        self,
+        val_loader: DataLoader[dict[str, torch.Tensor]],
+    ) -> float:
+        """Run model.eval() over val_loader, return mean MSE forecasting loss.
+
+        Iterates val_loader fully (no infinite-loader). Runs under
+        autocast(bf16) on CUDA. No gradients accumulated. Restores
+        model.training=True before returning.
+
+        In DDP mode, only rank-0 actually iterates val data; other ranks
+        wait at dist.barrier(). The rank-0 mean is broadcast to all ranks
+        so logging is consistent.
+
+        Returns
+        -------
+        float
+            Mean validation MSE loss (averaged over batches).
+        """
+        was_training = self.model.training
+        self.model.eval()
+        try:
+            if dist.is_initialized():
+                if is_rank_zero():
+                    total_loss = 0.0
+                    n_batches = 0
+                    with torch.no_grad():
+                        for batch in val_loader:
+                            tokens = batch["tokens"].to(self.device).unsqueeze(-1)
+                            targets = build_forecast_targets(tokens, self.horizons)
+                            with autocast(
+                                device_type="cuda",
+                                dtype=torch.bfloat16,
+                                enabled=(
+                                    self.precision == "bf16"
+                                    and self.device.type == "cuda"
+                                ),
+                            ):
+                                pred_full: torch.Tensor = self.model(tokens)
+                                pred = pred_full[:, : targets.shape[1]]
+                                loss = forecasting_loss(pred, targets)
+                            total_loss += float(loss.item())
+                            n_batches += 1
+                    mean_loss = total_loss / max(n_batches, 1)
+                    result = torch.tensor(mean_loss, dtype=torch.float64)
+                else:
+                    result = torch.tensor(0.0, dtype=torch.float64)
+                dist.broadcast(result, src=0)
+                dist.barrier()
+                return float(result.item())
+            else:
+                total_loss = 0.0
+                n_batches = 0
+                with torch.no_grad():
+                    for batch in val_loader:
+                        tokens = batch["tokens"].to(self.device).unsqueeze(-1)
+                        targets = build_forecast_targets(tokens, self.horizons)
+                        with autocast(
+                            device_type="cuda",
+                            dtype=torch.bfloat16,
+                            enabled=(
+                                self.precision == "bf16"
+                                and self.device.type == "cuda"
+                            ),
+                        ):
+                            pred_full = self.model(tokens)
+                            pred = pred_full[:, : targets.shape[1]]
+                            loss = forecasting_loss(pred, targets)
+                        total_loss += float(loss.item())
+                        n_batches += 1
+                return total_loss / max(n_batches, 1)
+        finally:
+            self.model.train(mode=was_training)
 
     def _train_step(
         self,

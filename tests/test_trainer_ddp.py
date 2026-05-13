@@ -254,3 +254,49 @@ def test_existing_trainer_tests_still_importable() -> None:
     mod = importlib.import_module("tests.test_trainer")
     assert hasattr(mod, "_build_tiny_setup")
     assert hasattr(mod, "test_trainer_overfit_reduces_loss_on_cpu")
+
+
+# ---------------------------------------------------------------------------
+# Task 4 — _eval + fit() val loop
+# ---------------------------------------------------------------------------
+
+
+def test_fit_runs_val_loop_with_val_loader_and_val_every(tmp_path: Path) -> None:
+    """val_loader + val_every: history accumulates val_loss at the right cadence."""
+    _, _, train_loader, trainer = _build_tiny_setup(tmp_path, n_data=5)
+    _, _, val_loader, _ = _build_tiny_setup(tmp_path, n_data=4)  # 4-window val set
+    history = trainer.fit(
+        train_loader, max_steps=30, val_loader=val_loader, val_every=10,
+    )
+    # max_steps=30, val_every=10 → val at steps 9, 19, 29 (1-indexed eval boundary)
+    assert len(history["val_step"]) == 3, (
+        f"Expected 3 val measurements, got {len(history['val_step'])}: "
+        f"{history['val_step']}"
+    )
+    assert len(history["val_loss"]) == 3
+    for v in history["val_loss"]:
+        assert torch.isfinite(torch.tensor(v))
+    # Model must be in training mode after fit() returns
+    assert trainer.model.training is True
+
+
+def test_fit_no_val_loader_leaves_history_val_empty(tmp_path: Path) -> None:
+    """Without val_loader, history['val_step'] / history['val_loss'] are present but empty."""
+    _, _, loader, trainer = _build_tiny_setup(tmp_path, n_data=5)
+    history = trainer.fit(loader, max_steps=10)
+    assert "val_step" in history and history["val_step"] == []
+    assert "val_loss" in history and history["val_loss"] == []
+
+
+def test_eval_runs_under_no_grad(tmp_path: Path) -> None:
+    """_eval should not leave any gradients on model parameters."""
+    _, _, train_loader, trainer = _build_tiny_setup(tmp_path, n_data=5)
+    _, _, val_loader, _ = _build_tiny_setup(tmp_path, n_data=4)
+    # Zero existing grads (none yet, but be defensive)
+    for p in trainer.model.parameters():
+        if p.grad is not None:
+            p.grad = None
+    trainer._eval(val_loader)
+    # _eval must not accumulate gradients
+    for p in trainer.model.parameters():
+        assert p.grad is None, "gradients should not be accumulated by _eval"
