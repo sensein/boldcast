@@ -30,6 +30,7 @@ from boldcast.training import (  # noqa: E402
     build_scheduler,
     cleanup_distributed,
     get_local_rank,
+    heldout_decreased_by,
     init_distributed,
     is_distributed_run,
     is_rank_zero,
@@ -306,6 +307,29 @@ def main() -> int:  # noqa: C901
         print(
             f"[day5] train loss steps: {len(history['loss'])}, "
             f"val measurements: {len(history['val_loss'])}"
+        )
+
+    # Acceptance criterion #2: held-out val loss decreased ≥30%.
+    if is_rank_zero():
+        if not heldout_decreased_by(history, frac=0.30, window=3):
+            val_loss = history["val_loss"]
+            first_3 = val_loss[:3] if len(val_loss) >= 3 else val_loss
+            last_3 = val_loss[-3:] if len(val_loss) >= 3 else val_loss
+            print(
+                f"[day5] heldout acceptance FAILED: "
+                f"first-3-mean={sum(first_3)/max(len(first_3),1):.6f}, "
+                f"last-3-mean={sum(last_3)/max(len(last_3),1):.6f} "
+                f"(need ≥30% drop)."
+            )
+            # cleanup before exit
+            if is_distributed_run():
+                cleanup_distributed()
+            raise SystemExit(1)
+        val_loss = history["val_loss"]
+        print(
+            f"[day5] heldout acceptance PASSED: "
+            f"first-3-mean={sum(val_loss[:3])/3:.6f}, "
+            f"last-3-mean={sum(val_loss[-3:])/3:.6f}."
         )
 
     if is_distributed_run():

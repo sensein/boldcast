@@ -18,7 +18,12 @@ from boldcast.training.ddp import (
 from boldcast.training.loss import build_forecast_targets, forecasting_loss
 from boldcast.training.optim import build_optimizer, build_scheduler
 from boldcast.training.trainer import Trainer
-from boldcast.training.utils import JsonlLogger, save_checkpoint, seed_everything
+from boldcast.training.utils import (
+    JsonlLogger,
+    heldout_decreased_by,
+    save_checkpoint,
+    seed_everything,
+)
 
 __all__ = [
     "JsonlLogger",
@@ -31,6 +36,7 @@ __all__ = [
     "get_local_rank",
     "get_rank",
     "get_world_size",
+    "heldout_decreased_by",
     "init_distributed",
     "is_distributed_run",
     "is_rank_zero",

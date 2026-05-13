@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 
 import torch
-from boldcast.training.utils import JsonlLogger, save_checkpoint, seed_everything
+from boldcast.training.utils import JsonlLogger, heldout_decreased_by, save_checkpoint, seed_everything
 from torch import nn
 
 
@@ -93,3 +93,39 @@ def test_save_checkpoint_creates_parent_dirs(tmp_path: Path) -> None:
     assert not nested.parent.exists()
     save_checkpoint(model, opt, step=0, path=nested)
     assert nested.exists()
+
+
+def test_heldout_decreased_by_strong_decrease() -> None:
+    """Strong decrease (1.0 → 0.5) passes 30% threshold."""
+    history = {"val_loss": [1.0, 1.0, 1.0, 0.5, 0.5, 0.5]}
+    assert heldout_decreased_by(history, frac=0.30, window=3) is True
+
+
+def test_heldout_decreased_by_flat_fails() -> None:
+    """Flat trajectory fails."""
+    history = {"val_loss": [1.0] * 6}
+    assert heldout_decreased_by(history, frac=0.30, window=3) is False
+
+
+def test_heldout_decreased_by_noisy_decreasing_passes() -> None:
+    """Noisy decreasing 1.0→0.65 (35% drop) passes."""
+    history = {"val_loss": [1.0, 1.05, 0.95, 0.70, 0.60, 0.65]}
+    assert heldout_decreased_by(history, frac=0.30, window=3) is True
+
+
+def test_heldout_decreased_by_noisy_flat_fails() -> None:
+    """Noisy with spike but no real trend fails."""
+    history = {"val_loss": [1.0, 1.2, 0.8, 1.1, 0.9, 1.0]}
+    assert heldout_decreased_by(history, frac=0.30, window=3) is False
+
+
+def test_heldout_decreased_by_insufficient_data() -> None:
+    """Fewer than 2*window measurements → False."""
+    history = {"val_loss": [1.0, 0.5, 0.3]}
+    assert heldout_decreased_by(history, frac=0.30, window=3) is False
+
+
+def test_heldout_decreased_by_empty_history() -> None:
+    """Empty val_loss → False."""
+    history = {"val_loss": []}
+    assert heldout_decreased_by(history, frac=0.30, window=3) is False
