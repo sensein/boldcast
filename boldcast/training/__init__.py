@@ -6,11 +6,14 @@ than importing each submodule by name.
 """
 
 from boldcast.training.ddp import (
+    cleanup_distributed,
     get_local_rank,
     get_rank,
     get_world_size,
+    init_distributed,
     is_distributed_run,
     is_rank_zero,
+    setup_model_for_ddp,
 )
 from boldcast.training.loss import build_forecast_targets, forecasting_loss
 from boldcast.training.optim import build_optimizer, build_scheduler
@@ -23,12 +26,15 @@ __all__ = [
     "build_forecast_targets",
     "build_optimizer",
     "build_scheduler",
+    "cleanup_distributed",
     "forecasting_loss",
     "get_local_rank",
     "get_rank",
     "get_world_size",
+    "init_distributed",
     "is_distributed_run",
     "is_rank_zero",
     "save_checkpoint",
     "seed_everything",
+    "setup_model_for_ddp",
 ]
