@@ -14,3 +14,7 @@ demo/_palette.npy
 
 # Python cache (also caught by root .gitignore, explicit here for safety)
 __pycache__/
+
+# Local rehearsal / design-handoff artifacts (not part of the shipped deck)
+claude_design_prompts.md
+speaker_script.md

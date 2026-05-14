@@ -291,6 +291,86 @@ def fig_day3_metrics() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Day-4 overfit loss curve — slide 10 figure (replaces cortex_patches.png).
+# Source: results/day4_sanity_lr1e3/loss_log.jsonl (3000-step canonical run
+# that met the new spec; despite the directory name, this is the lr=1e-3 run
+# that landed in PR #4's verification, not a sanity-check run).
+# ---------------------------------------------------------------------------
+def fig_day4_loss_curve() -> None:
+    """Day-4 overfit loss curve: 0.361 → 0.081 over 3000 steps, with
+    windowed-mean ratio markers showing the 20.01% achievement vs the
+    ≤70% spec ceiling."""
+    import json
+
+    jsonl = Path(__file__).resolve().parent.parent / "results" / "day4_sanity_lr1e3" / "loss_log.jsonl"
+    with jsonl.open() as f:
+        entries = [json.loads(line) for line in f if line.strip()]
+    steps = np.array([e["step"] for e in entries], dtype=float)
+    losses = np.array([e["loss"] for e in entries], dtype=float)
+
+    # Rolling-100 smoothed trace (centered, edge-padded with edge values to
+    # avoid the boundary-zero artifact that mode="same" introduces).
+    win = 100
+    pad = win // 2
+    padded = np.pad(losses, (pad, pad), mode="edge")
+    kernel = np.ones(win) / win
+    smoothed = np.convolve(padded, kernel, mode="valid")[: len(losses)]
+
+    first50 = float(losses[:50].mean())
+    last50 = float(losses[-50:].mean())
+    ratio = last50 / first50
+    threshold = 0.7 * first50  # spec: last-50 / first-50 ≤ 70%
+
+    fig, ax = plt.subplots(figsize=(7.2, 4.6))
+
+    # Raw jitter (alpha) + smoothed bold trace, both MIT Red.
+    ax.plot(steps, losses, color=C_OURS, lw=0.6, alpha=0.25)
+    ax.plot(steps, smoothed, color=C_OURS, lw=2.4)
+
+    # First-50 mean marker (left edge). Label sits ABOVE the dashed line so
+    # it doesn't ride the curve, and grey type is large enough to read at
+    # projection size.
+    ax.hlines(first50, xmin=0, xmax=420, color=C_OTHER, lw=1.6, linestyles="--")
+    ax.text(210, first50 + 0.018, f"first-50  {first50:.3f}",
+            color=C_OTHER, fontsize=12, ha="center", va="bottom")
+
+    # Last-50 mean marker (right edge). Label sits ABOVE the dashed line —
+    # not on the curve — so the trace at the right end stays unobstructed.
+    ax.hlines(last50, xmin=2580, xmax=3000, color=C_OURS, lw=1.6, linestyles="--")
+    ax.text(2790, last50 + 0.018, f"last-50  {last50:.3f}",
+            color=C_OURS, fontsize=12, ha="center", va="bottom")
+
+    # 70% threshold (spec ceiling). Larger, no italics.
+    ax.axhline(threshold, color=C_OTHER, lw=1.2, linestyle=":", alpha=0.75)
+    ax.text(3000, threshold + 0.008,
+            f"spec ceiling  ≤70% × first-50  ({threshold:.3f})",
+            color=C_OTHER, fontsize=12, ha="right", va="bottom")
+
+    # Achievement annotation, upper-right. Moved a touch higher; no bold.
+    ax.text(2950, 0.53,
+            f"ratio = {ratio*100:.1f}%\n(spec: ≤70%)",
+            color=C_OURS, fontsize=13, ha="right", va="top",
+            bbox=dict(boxstyle="round,pad=0.4", facecolor=COLORS["bg_soft"],
+                      edgecolor=C_OURS, lw=1.4))
+
+    ax.set_xlabel("training step", fontsize=11)
+    ax.set_ylabel("loss", fontsize=11)
+    ax.set_xlim(0, 3000)
+    # Clip the y-axis below the 2-3 outlier spikes (>1.0 loss, transient
+    # gradient blips). The rolling-100 mean and 99.9th percentile both sit
+    # well under 0.5, so clipping at ~0.55 keeps every load-bearing feature.
+    ax.set_ylim(0, 0.55)
+    ax.grid(True, axis="y", alpha=0.25, linestyle=":")
+    for spine in ("top", "right"):
+        ax.spines[spine].set_visible(False)
+
+    fig.tight_layout()
+    fig.savefig(OUT / "day4_loss_curve.png", dpi=160, facecolor="white")
+    plt.close(fig)
+    print(f"wrote {OUT/'day4_loss_curve.png'}")
+
+
+# ---------------------------------------------------------------------------
 # Figure 3: hook schematic — movie timeline + brain-state trajectory
 # ---------------------------------------------------------------------------
 def fig_hook() -> None:
@@ -1091,14 +1171,24 @@ def fig_hybrid_block() -> None:
 
 
 if __name__ == "__main__":
-    fig_memory_scaling()
+    # Active generators — outputs referenced in seed_pitch.md.
     fig_day3_metrics()
-    fig_hook()
+    fig_day4_loss_curve()
     fig_tokenization_wall()
-    fig_stimulus_gap()
     fig_architecture()
     fig_hybrid_block()
-    fig_hook_observe_gif()
-    fig_hook_forecast_gif()
     fig_mem_scaling_gif()
+    # Hook GIFs: the deck references hook_scene.gif / hook_dynamics.gif,
+    # whose real visuals are produced by Claude Design (see
+    # talk/claude_design_prompts.md, Prompt 3). The matplotlib fallback
+    # functions fig_hook_observe_gif / fig_hook_forecast_gif are kept
+    # below as reference but no longer auto-generate placeholders here.
+
+    # Dead generators (kept for reference; no longer auto-called):
+    #   fig_memory_scaling     — static .png unused (only .gif is in the deck)
+    #   fig_hook               — old single-slide static hook
+    #   fig_stimulus_gap       — never landed in the main flow
+    #   fig_hook_observe_gif   — superseded by hook_scene.gif (Claude Design)
+    #   fig_hook_forecast_gif  — superseded by hook_dynamics.gif (Claude Design)
+
     print(f"\nAll figures written to {OUT}/")

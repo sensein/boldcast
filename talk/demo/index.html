@@ -188,15 +188,7 @@
 <body>
 
 <header>
-  <h1>BOLDcast — interactive tokenization &amp; scaling</h1>
-  <p class="sub">
-    1,024 atlas-free geodesic patches on the cortical surface · linear-time
-    sequence modelling at <code>T</code> = 256 TRs · companion to the seed-grant pitch deck
-  </p>
-  <p class="ack">
-    Surface: Conte69 fs_LR 32k (brainspace) · ROI mask: HCPpipelines public template ·
-    patch assignment: <code>cache/patches_fsLR_32k_n1024_seed0_geo.npz</code> from Day-1
-  </p>
+  <h1>BOLDcast — interactive demo</h1>
 </header>
 
 <main>
@@ -205,35 +197,23 @@
 <!-- Section 1: tokenization                                       -->
 <!-- ============================================================ -->
 <section id="tokenization">
-  <h2>Tokenization · 1,024 geodesic patches on the cortical surface</h2>
-  <p class="lede">
-    Click anywhere on either hemisphere to inspect the patch under the cursor.
-    Per-hemisphere FPS on the geodesic distance graph + Lloyd relaxation —
-    no atlas commitment, no within-parcel averaging.
-  </p>
+  <h2>Cortex tokenization</h2>
 
   <div class="cortex-row">
     <div class="hemi" data-hemi="lh">
-      <span class="label">left lateral · 512 patches</span>
+      <span class="label">left</span>
       <img class="display" src="cortex_lh_display.png" alt="Left hemisphere lateral view with 512 geodesic patches">
       <canvas class="overlay"></canvas>
     </div>
     <div class="hemi" data-hemi="rh">
-      <span class="label">right lateral · 512 patches</span>
+      <span class="label">right</span>
       <img class="display" src="cortex_rh_display.png" alt="Right hemisphere lateral view with 512 geodesic patches">
       <canvas class="overlay"></canvas>
     </div>
     <aside class="info-card" id="patch-info">
       <h3>Selected patch</h3>
-      <p class="placeholder">Click anywhere on the cortex.</p>
+      <p class="placeholder">&nbsp;</p>
     </aside>
-  </div>
-
-  <div class="summary">
-    <div class="stat"><div class="label">Patches</div><div class="value">1,024</div></div>
-    <div class="stat"><div class="label">+ subcortex k-means</div><div class="value">+768</div></div>
-    <div class="stat"><div class="label">Total tokens / TR</div><div class="value">1,792</div></div>
-    <div class="stat"><div class="label">Round-trip residual</div><div class="value">6.2 × 10⁻¹¹</div></div>
   </div>
 </section>
 
@@ -241,37 +221,23 @@
 <!-- Section 2: memory scaling                                     -->
 <!-- ============================================================ -->
 <section id="scaling">
-  <h2>Why Mamba · linear vs quadratic memory in <code>T</code></h2>
-  <p class="lede">
-    Drag the slider to vary sequence length <code>T</code> (in TRs). Mamba activation
-    memory grows linearly; transformer attention grows quadratically and crosses
-    the practical H200 ceiling well below the naturalistic-fMRI operating point.
-    Anchored on the demo's measured 6.09 GB F+B at <code>T</code> = 256.
-  </p>
+  <h2>Memory · Mamba vs Transformer</h2>
 
   <div class="chart-wrap">
     <div id="scaling-chart"></div>
     <aside class="slider-card">
-      <label for="T-slider">Sequence length T</label>
+      <label for="T-slider">T</label>
       <input id="T-slider" type="range" min="32" max="1024" value="256" step="8">
-      <div class="readout"><span id="T-readout">256</span> TRs</div>
+      <div class="readout"><span id="T-readout">256</span></div>
 
       <div class="compare">
         <div class="row">
-          <span>Mamba — O(T)</span>
+          <span class="mamba">Mamba</span>
           <span class="mamba" id="mamba-readout">6.09 GB</span>
         </div>
         <div class="row">
-          <span>Transformer — O(T²)</span>
+          <span class="trans">Transformer</span>
           <span class="trans" id="trans-readout">48.7 GB</span>
-        </div>
-        <div class="row">
-          <span>H200 practical ceiling</span>
-          <span style="color:var(--body)">~100 GB</span>
-        </div>
-        <div class="row">
-          <span>Working-window target</span>
-          <span style="color:var(--body)">256–1024 TRs</span>
         </div>
       </div>
     </aside>
@@ -280,10 +246,7 @@
 
 </main>
 
-<footer>
-  Interactive demo · BOLDcast seed-grant pitch · companion to
-  <code>talk/seed_pitch.md</code> · static page, no model loaded in browser
-</footer>
+<footer></footer>
 
 <script>
 // ============================================================
@@ -379,19 +342,15 @@ function showPatch(patchId) {
   const entry = META.patches[patchId];
   const hemiName = entry.hemisphere === 'LH' ? 'left' : 'right';
   patchInfoEl.innerHTML = `
-    <h3>Selected patch</h3>
-    <div class="info-row highlight"><span class="k">Patch ID</span><span class="v">${patchId}</span></div>
-    <div class="info-row"><span class="k">Hemisphere</span><span class="v">${hemiName} (${entry.hemisphere})</span></div>
-    <div class="info-row"><span class="k">Vertices</span><span class="v">${entry.n_vertices}</span></div>
-    <div class="info-row"><span class="k">Per-token feature</span><span class="v">mean BOLD</span></div>
-    <div class="info-row"><span class="k">Round-trip residual</span><span class="v">6.2 × 10⁻¹¹</span></div>
+    <h3>Patch ${patchId}</h3>
+    <div class="info-row highlight"><span class="k">Hemisphere</span><span class="v">${hemiName}</span></div>
   `;
 }
 
 function showEmpty() {
   patchInfoEl.innerHTML = `
     <h3>Selected patch</h3>
-    <p class="placeholder">Click anywhere on the cortex.</p>
+    <p class="placeholder">&nbsp;</p>
   `;
 }
 

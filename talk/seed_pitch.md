@@ -327,34 +327,45 @@ Hit slide 1 immediately.
 
 <!-- _class: showcase -->
 
-# Can we forecast a brain mid-movie?
+# A brain watches a movie.
 
-![w:900](figures/hook_observe.gif)
+![w:900](figures/hook_scene.gif)
 
 <!--
-SAY (slide 2a, the setup, ~40 s):
-"Imagine watching a movie. We have someone's whole-brain activity over the past
-30 seconds while they were watching it. From that brain history alone, what can
-we say about what comes next?"
+SAY (slide 2a, ~25 s):
+"Watch a movie, and the cortex traces a path. Scene by scene, your brain state
+moves through a high-dimensional space — driven partly by what's on the screen,
+partly by everything else: motion, internal state, the fact that brains are
+brains."
 
-TRANSITION → click to the forecast reveal.
+TRANSITION → click to the dynamics reveal.
 -->
 
 ---
 
 <!-- _class: showcase -->
 
-# …we forecast.
+# BOLDcast learns its narrative-driven dynamics.
 
-![w:900](figures/hook_forecast.gif)
+![w:900](figures/hook_dynamics.gif)
 
 <!--
-SAY (slide 2b, the payoff, ~40 s):
-"Predict the brain state five TRs into the future, and tell us which scene
-they're watching from the brain alone. That's the technical question behind
-BOLDcast: joint forecasting and stimulus alignment for naturalistic fMRI. I'm
-here to argue we're ready to build the first foundation model that does both,
-and to show you what we've already shipped."
+SAY (slide 2b, ~40 s):
+"BOLDcast is a foundation model that captures the cortical dynamics that are
+attributable to the narrative — the part of the trajectory that's about the
+movie. Same brain trace as before, now grounded in what the story is doing.
+That's the contribution: a learned, calibrated map from naturalistic stimulus
+to cortical state, on the surface, at scale."
+
+WHY THIS HOOK: the project goal is to capture narrative-attributable brain
+dynamics — NOT to predict the next TR. Forecasting is the training signal, not
+the contribution. The headline is the *capture*: brain trajectories grounded
+in the story.
+
+DON'T SAY on stage: "we separate signal from noise" / "we filter out artifacts"
+/ "we discard the non-narrative part". Those framings center the residual. The
+residual exists (artifacts, internal state, individual anatomy via FiLM-sMRI),
+but it's a methods-section detail, not a hook claim.
 
 TRANSITION → "Why isn't this solved already? Three concrete reasons."
 -->
@@ -435,6 +446,42 @@ TRANSITION → "Here's the system in one picture."
 
 <!-- _class: showcase -->
 
+# What this unlocks
+
+- **Dynamic biomarkers** under naturalistic stimuli — beyond static rsFC
+- **Closed-loop content** — therapy, education, BCI driven by real-time forecasts
+- **Cross-subject latent** — joint representation without atlas parcellation
+- **Brain ⇄ stimulus retrieval** — recover the scene from the trajectory
+
+<!--
+SAY: "Forecasting the next TR is the training signal. The point is what falls
+out of a model that has learned stimulus-aligned brain trajectories. Four
+buckets: dynamic biomarkers — current psychiatric biomarkers are static
+resting-state correlations; this is the dynamic version under ecologically
+valid stimuli. Closed-loop content — once you can forecast a few seconds out
+under a video or task, you can adapt the content in real time. Cross-subject
+latent without parcellation — geodesic patches give us a shared surface
+without committing to any atlas; that's the foundation for individual-
+differences work that doesn't bake an atlas into its conclusions. And
+brain-to-stimulus retrieval — given a trajectory, what video was the subject
+watching? The contrastive head makes that a tractable retrieval problem."
+
+WHY THIS SLIDE EXISTS: The single most important slide for a reviewer who
+cares about *why*. "Forecast the next TR" is plumbing; this slide names the
+science. Four bullets, no small text — speaker fills in.
+
+WATCH FOR: someone asking "isn't biomarker work usually disease-cohort?"
+Correct. Phase-2 evaluation (slide 14) is on healthy HCP / CNeuroMod; the
+biomarker bullet here is what the foundation model enables downstream, not
+what we'll demonstrate in six months.
+
+TRANSITION → "Here's the system in one picture."
+-->
+
+---
+
+<!-- _class: showcase -->
+
 # BOLDcast in one slide
 
 <div style="margin-top: -8px;">
@@ -450,6 +497,17 @@ stimulus. The Mamba block is what makes 256-TR context feasible. The rest of the
 talk is three slides deep on the three pieces that matter."
 
 REFERENCE THIS SLIDE AGAIN at slides 4, 5, 6 — it is the anchor.
+
+PIPELINE SCOPE (use if asked "what about preprocessing?" or "how do you align
+subjects?"): BOLDcast operates on HCP minimal-preprocessed CIFTI grayordinates.
+It eliminates the atlas-parcellation step — no Schaefer / Glasser ROI averaging
+anywhere in the stack — but still relies on FreeSurfer surface reconstruction
+and MSM-All cross-subject alignment to fsLR. The joint cross-subject latent is
+built via shared `fsLR_32k` geodesic patches (so patch *i* in subject A and
+subject B sit on the same anatomical cortex) plus per-subject FiLM-sMRI
+conditioning that handles residual individual variability post-alignment. Net:
+the model is **atlas-free, not preprocessing-free** — a reduction in
+atlas-bound lossy steps, not their elimination.
 
 TRANSITION → "Tokenization is where everything downstream is on real anatomy
 or made-up anatomy."
@@ -767,45 +825,48 @@ isn't a sketch. It's running."
 
 ---
 
-# Tokenizer, validated on an HCP subset
+# Tokenizer + training, validated on HCP
 
 <div style="display: flex; gap: 30px;">
 
 <div style="flex: 1;">
 
-**Pipeline shipped**
+**Tokenizer**
 
-- `boldcast/tokenize/geodesic.py`
-  — per-hemisphere FPS + Lloyd
-- `boldcast/tokenize/patcher.py`
-  — scatter-mean (T, V) → (T, P)
-- `boldcast/io/cifti.py`
-  — load + save dtseries
-- 34 tests in CI; cached patch
-  assignment with content-hash filename
+- 3 modules shipped · 34 tests in CI
+- Round-trip residual **<span class="ok">6.2 × 10⁻¹¹</span>** (fp64)
 
-**Audit (one HCP subject)**
+**Training**
 
-- float64 round-trip residual
-  **<span class="ok">6.2 × 10⁻¹¹</span>**
-- patch size mean 58 (std 23) vertices
+- Day-4 overfit: **0.361 → 0.081**
+- Windowed-mean ratio **20.0%**
+  (spec ≤ 70%)
 
 </div>
 
 <div style="flex: 1;">
 
-![w:520](figures/cortex_patches.png)
+![w:560](figures/day4_loss_curve.png)
 
 </div>
 </div>
 
 <!--
-SAY: "Day one: tokenizer. Three modules, thirty-four tests, deterministic patch
-assignment cached with a content hash so re-runs are free. The audit number is
-six times ten-to-the-minus-eleven on a real HCP subject — well under our
-one-times-ten-to-the-minus-nine acceptance bound. The picture on the right will
-be the patch visualisation from that same subject once we render it for the
-rehearsal."
+SAY: "Tokenizer round-trips to six-times-ten-to-the-minus-eleven on a real HCP
+subject — well under our one-times-ten-to-the-minus-nine bound. Day four was
+the first end-to-end training run: three thousand steps on one held-out
+subject, loss four-tenths down to eight-hundredths. The windowed-mean ratio is
+twenty percent against a seventy-percent ceiling — comfortable headroom."
+
+WHY THIS SLIDE EXISTS: Anchor that the stack is real code, not slideware. The
+loss curve is the strongest single piece of "model works end-to-end" evidence
+we have on the deck. The tokenizer audit (left column) is the prerequisite —
+if tokenization leaked, the loss curve wouldn't mean anything.
+
+WATCH FOR: "you can overfit anything on one subject." Correct, but the point
+is that the *whole pipeline* (tokenizer → dataset cache → Mamba ⊗ kNN model →
+forecasting loss → optimizer) hangs together on real data and converges.
+Phase 1 (slide 13) is where we scale to 1,200 subjects.
 
 TRANSITION → "Day two: data."
 -->
@@ -1036,6 +1097,40 @@ ICLR submission for the science. The toolkit is the part that survives even
 if nobody cites the paper."
 
 TRANSITION → "Here's the ask."
+-->
+
+---
+
+<!-- _class: showcase -->
+
+# After release: where this goes
+
+- **Naturalistic biomarkers** — depression / anxiety trajectory tracking under video stimuli
+- **Few-shot transfer** to new subjects via the atlas-free joint latent
+- **Reduced-preprocessing pipelines** — first step toward surface-only / less-cleanup input
+
+<!--
+SAY: "The model is a foundation, not a finding. Three directions we expect
+to take it after the manuscript and the toolkit release. Naturalistic
+biomarker work — clinically the holy grail is dynamic, ecologically valid
+markers, and a stimulus-aligned forecasting backbone is the right substrate
+for that. Few-shot transfer — because the latent is built on a shared
+surface without atlas commitment, adding a new subject with twenty minutes of
+data should be tractable; that's the next experiment after Phase 2 closes.
+And reducing the preprocessing load — right now we eat HCP minimal
+preprocessing; the open question is how much of that the model can absorb
+end-to-end once it's pretrained at scale."
+
+WHY THIS SLIDE EXISTS: The reviewer who has tracked with us this far is
+asking 'what happens after the six months?' Answer that *before* the
+compute-ask slide so the ask reads as scaffolding for a research program,
+not as an end in itself.
+
+WATCH FOR: "you can't claim biomarkers from HCP healthy subjects." Correct.
+This slide is what the *checkpoint enables* — not what we deliver in six
+months. The six-month deliverables are on slide 16 (next).
+
+TRANSITION → "Here's what we need to make that real."
 -->
 
 ---

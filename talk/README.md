@@ -49,11 +49,13 @@ Outputs to `talk/figures/`:
 
 | File | Slide | Source |
 |---|---|---|
-| `hook.png` + `hook.gif` | §1 hook | Pure schematic; GIF first frame held 2 s |
-| `stimulus_gap.png` | §2b | Pure schematic |
-| `tokenization_wall.png` | §4a | Constants from proposal + methods |
-| `mem_scaling.png` + `mem_scaling.gif` | §5 (why Mamba) | Anchored on Day-3 6.09 GB; ratio extrapolation; GIF first frame held 2 s |
-| `day3_metrics.png` | §7c (Day 3) | PR #3 measurements |
+| `hook_scene.gif` + `hook_dynamics.gif` | 2a / 2b | **Placeholder** copies of the old hook GIFs at new filenames. Real visuals to be produced via Claude Design (see `claude_design_prompts.md` Prompt 3). |
+| `tokenization_wall.png` | 6 | Constants from proposal + methods |
+| `architecture.png` | 5 | Schematic; to be redesigned via Claude Design (Prompt 1) |
+| `hybrid_block.png` | 9 | Schematic; to be redesigned via Claude Design (Prompt 2) |
+| `mem_scaling.gif` | 8 (why Mamba) | Animated, anchored on Day-3 6.09 GB. First frame held ≥2 s for Marp PDF render fallback |
+| `day3_metrics.png` | 12 | PR #3 measurements (params / forward / memory) |
+| `day4_loss_curve.png` | 10 | `results/day4_sanity_lr1e3/loss_log.jsonl` — 3000-step Day-4 overfit run (0.361 → 0.081, ratio 20.1%) |
 
 ## Design system
 
@@ -168,11 +170,10 @@ These are things Claude cannot do — they require HCP data access, the
 user's identity (Restricted DUA, proposal authorship), or external
 scheduling.
 
-1. ~~**Slide 7a placeholder — real cortex patch render.**~~
-   Done: `talk/figures/cortex_patches.png` is the real Day-1 validation
-   output on subject 115825 (rendered 2026-05-14 before the talk). To
-   regenerate, re-run `scripts/day1_validate_tokenizer.py` and copy the
-   resulting `figures/day1_patches.png` into place.
+1. ~~**Slide 10 cortex render.**~~
+   Superseded: slide 10 now shows `day4_loss_curve.png` (Day-4 overfit
+   training run) instead of the cortex visualization. The old
+   `cortex_patches.png` was removed during the post-talk iteration.
 
 2. **Slide 16 GPU-hour numbers.**
    The current Slide 16 "ask" frames the compute envelope qualitatively
