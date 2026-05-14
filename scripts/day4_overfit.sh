@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#SBATCH --partition=pi_satra
+#SBATCH --partition=mit_normal_gpu
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=64G
