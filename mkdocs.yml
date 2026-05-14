@@ -1,0 +1,59 @@
+site_name: BOLDcast
+site_description: Atlas-free hybrid-Mamba foundation model for naturalistic fMRI
+site_url: https://sensein.github.io/boldcast/docs/
+repo_url: https://github.com/sensein/boldcast
+repo_name: sensein/boldcast
+edit_uri: edit/main/docs/
+
+docs_dir: docs
+# Build into site/docs so the GH-Actions workflow can layer /talks/, /index.html,
+# and .nojekyll on top into the final ./site/ deploy artifact.
+site_dir: site/docs
+use_directory_urls: true
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: deep purple
+      accent: deep purple
+  features:
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - content.code.copy
+    - search.suggest
+
+nav:
+  - Home: index.md
+  - Methods: methods.md
+  - Architecture: architecture.md
+  - 10-day plan: 10_day_plan.md
+  - Data preparation: data_preparation.md
+  - ORCD benchmarks: orcd_benchmarks.md
+  - Architecture Decision Records:
+    - Overview: adr/README.md
+    - 0001 · Deterministic, not variational: adr/0001-deterministic-not-variational.md
+    - 0002 · Day-1 tokenizer: adr/0002-day1-tokenizer-implementation.md
+    - 0003 · Day-2 dataset: adr/0003-day2-dataset-design.md
+    - 0004 · Day-3 architecture: adr/0004-day3-model-architecture.md
+    - 0005 · Day-4 training loop: adr/0005-day4-training-loop.md
+    - 0006 · Day-5 DDP: adr/0006-day5-ddp.md
+
+# Don't publish in-progress planning notes or the seed-grant proposal.
+exclude_docs: |
+  superpowers/
+  proposal.md
+
+markdown_extensions:
+  - admonition
+  - toc:
+      permalink: true
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.details
+  - tables
+  - attr_list
