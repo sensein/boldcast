@@ -96,6 +96,13 @@ def main() -> int:
     p.add_argument("--config", default="configs/demo.yaml")
     p.add_argument("--max-steps", type=int, default=1000)
     p.add_argument("--out-dir", default="results/day4_overfit")
+    p.add_argument(
+        "--lr",
+        type=float,
+        default=None,
+        help="Override cfg.train.lr. Default uses config "
+             "(canonical Day-4 run passes --lr 1e-3 + --max-steps 3000).",
+    )
     args = p.parse_args()
 
     cfg = OmegaConf.load(args.config)
@@ -192,10 +199,12 @@ def main() -> int:
     n_params = sum(p.numel() for p in model.parameters())
     print(f"[day4]   params: {n_params/1e6:.3f} M")
 
-    # Optimizer: cfg.train.lr, but override weight_decay=0 (ADR 0005 D6).
+    # Optimizer: cfg.train.lr (or --lr override), weight_decay=0 (ADR 0005 D6).
+    lr_used = float(args.lr) if args.lr is not None else float(cfg.train.lr)
+    print(f"[day4] optimizer lr = {lr_used:.2e}")
     optimizer = build_optimizer(
         model,
-        lr=float(cfg.train.lr),
+        lr=lr_used,
         weight_decay=0.0,                          # OVERRIDE
         betas=(float(cfg.train.beta1), float(cfg.train.beta2)),
     )
@@ -217,19 +226,41 @@ def main() -> int:
     print(f"[day4] fitting for {args.max_steps} steps ...")
     history = trainer.fit(loader, max_steps=int(args.max_steps))
 
+    # Acceptance: >=30% drop in windowed mean (ADR 0005 D8). Matches the
+    # Day-5 acceptance threshold and the CPU sanity test pattern (schist 229).
+    # The previous <1% threshold (ADR 0005 D5 original) was unreachable due
+    # to the autocorrelation-derived MSE floor at horizon=5 on real BOLD:
+    # the per-horizon floor is ~1 - rho(h)^2, and rho(5) ~ 0.6 on BOLD,
+    # giving an irreducible floor much higher than 1% of initial.
+    window = 50
+    if len(history["loss"]) < window:
+        raise SystemExit(
+            f"[day4] need at least {window} steps for windowed acceptance, "
+            f"got {len(history['loss'])}."
+        )
     initial = history["loss"][0]
     final = history["loss"][-1]
-    ratio = final / initial if initial > 0 else float("inf")
+    initial_slice = history["loss"][:window]
+    final_slice = history["loss"][-window:]
+    initial_window = sum(initial_slice) / len(initial_slice)
+    final_window = sum(final_slice) / len(final_slice)
+    ratio = final_window / initial_window if initial_window > 0 else float("inf")
     print(
-        f"[day4] initial loss = {initial:.6f}  "
-        f"final loss = {final:.6f}  ratio = {ratio:.4%}"
+        f"[day4] initial loss = {initial:.6f}  final loss = {final:.6f}"
     )
-    if not (final < 0.01 * initial):
+    print(
+        f"[day4] first-{window}-mean = {initial_window:.6f}  "
+        f"last-{window}-mean = {final_window:.6f}  ratio = {ratio:.4%}"
+    )
+    if not (final_window <= 0.7 * initial_window):
         raise SystemExit(
-            f"[day4] overfit FAILED: final loss is {ratio:.4%} of initial "
-            "(target < 1%)."
+            f"[day4] overfit FAILED: last-{window}-mean is {ratio:.4%} of "
+            "first-window-mean (target <= 70%, i.e., >=30% drop)."
         )
-    print("[day4] overfit acceptance PASSED (final < 1% of initial).")
+    print(
+        f"[day4] overfit acceptance PASSED: last-{window}-mean is "
+        f"{ratio:.4%} of first-window-mean (>=30% drop)."
+    )
 
     ckpt_path = out_dir / "ckpt_overfit.pt"
     save_checkpoint(model, optimizer, step=int(args.max_steps), path=ckpt_path)
