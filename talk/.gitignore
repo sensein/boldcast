@@ -1,5 +1,4 @@
-# Rendered Marp output (PDF is shipped as archival snapshot; HTML / PPTX are not)
-seed_pitch.html
+# Rendered Marp output (HTML + PDF are shipped as archival snapshot; PPTX is not)
 seed_pitch.pptx
 
 # Animated figures (regenerable from build_figures.py; static PNGs are shipped)
