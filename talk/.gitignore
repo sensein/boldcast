@@ -1,0 +1,17 @@
+# Rendered Marp output (PDF is shipped as archival snapshot; HTML / PPTX are not)
+seed_pitch.html
+seed_pitch.pptx
+
+# Animated figures (regenerable from build_figures.py; static PNGs are shipped)
+figures/*.gif
+
+# Marp preview thumbnails (regenerable)
+preview/
+
+# Demo runtime assets (regenerable from demo/build_demo_assets.py)
+demo/cortex_*.png
+demo/patch_meta.json
+demo/_palette.npy
+
+# Python cache (also caught by root .gitignore, explicit here for safety)
+__pycache__/

@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>BOLDcast — Interactive tokenization & scaling</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Plotly via CDN for the memory-scaling chart -->
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<style>
+  :root {
+    --gap:     #750014;
+    --primary: #002896;
+    --success: #004d1a;
+    --ink:     #212326;
+    --body:    #626a73;
+    --accent:  #8b959e;
+    --rule:    #c8cdd3;
+    --bg:      #ffffff;
+    --bg-soft: #f2f4f8;
+
+    --font-family: -apple-system, BlinkMacSystemFont, "Inter", "Helvetica Neue",
+                   Arial, sans-serif;
+    --font-mono:   "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    font-family: var(--font-family);
+    color: var(--ink); background: var(--bg);
+    line-height: 1.55;
+  }
+
+  header {
+    padding: 28px 48px 18px;
+    border-bottom: 1px solid var(--rule);
+  }
+  header h1 {
+    margin: 0; color: var(--primary); font-size: 28px; font-weight: 700;
+  }
+  header .sub {
+    margin: 4px 0 0; color: var(--body); font-size: 15px;
+  }
+  header .ack {
+    margin: 6px 0 0; color: var(--accent); font-size: 12px;
+  }
+
+  main { padding: 28px 48px; max-width: 1400px; margin: 0 auto; }
+
+  section { margin-bottom: 40px; }
+  section h2 {
+    color: var(--primary); font-size: 20px; margin: 0 0 4px;
+    border-left: 4px solid var(--primary); padding-left: 10px;
+  }
+  section .lede { color: var(--body); margin: 0 0 18px; font-size: 14px; }
+
+  /* ---- cortex viewer ---- */
+  .cortex-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 320px;
+    gap: 24px;
+    align-items: start;
+  }
+  .hemi {
+    position: relative;
+    background: var(--bg-soft);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    overflow: hidden;
+    cursor: crosshair;
+    aspect-ratio: 1100 / 786;
+  }
+  .hemi .label {
+    position: absolute; top: 8px; left: 12px;
+    font-size: 12px; color: var(--body);
+    letter-spacing: 0.04em; text-transform: uppercase;
+    pointer-events: none;
+  }
+  .hemi img, .hemi canvas {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    user-select: none; -webkit-user-drag: none;
+  }
+  .hemi .picking { display: none; }     /* loaded only into a hidden Image */
+  .hemi .overlay { pointer-events: none; image-rendering: pixelated; }
+
+  .info-card {
+    background: var(--bg-soft);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: 18px 20px;
+  }
+  .info-card h3 {
+    margin: 0 0 10px;
+    color: var(--primary); font-size: 14px;
+    letter-spacing: 0.04em; text-transform: uppercase;
+    font-weight: 600;
+  }
+  .info-card .placeholder {
+    color: var(--body); font-size: 14px; font-style: italic;
+  }
+  .info-row {
+    display: flex; justify-content: space-between;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--rule);
+    font-size: 14px;
+  }
+  .info-row:last-child { border-bottom: none; }
+  .info-row .k { color: var(--body); }
+  .info-row .v { color: var(--ink); font-family: var(--font-mono); }
+  .info-row.highlight .v { color: var(--gap); font-weight: 700; }
+
+  .summary {
+    margin-top: 18px;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+  .stat {
+    background: var(--bg-soft);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: 12px 16px;
+  }
+  .stat .label {
+    font-size: 11px; color: var(--body);
+    letter-spacing: 0.05em; text-transform: uppercase;
+  }
+  .stat .value {
+    font-size: 22px; color: var(--primary);
+    font-family: var(--font-mono); font-weight: 700;
+    margin-top: 2px;
+  }
+
+  /* ---- scaling chart ---- */
+  .chart-wrap {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 24px;
+    align-items: stretch;
+  }
+  #scaling-chart {
+    background: var(--bg-soft);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    min-height: 480px;
+  }
+  .slider-card {
+    background: var(--bg-soft);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: 18px 20px;
+  }
+  .slider-card label {
+    display: block; font-size: 13px; color: var(--body);
+    letter-spacing: 0.04em; text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .slider-card input[type=range] {
+    width: 100%;
+    accent-color: var(--primary);
+  }
+  .slider-card .readout {
+    margin-top: 10px;
+    font-family: var(--font-mono); font-size: 18px;
+    color: var(--primary); font-weight: 700;
+  }
+  .compare {
+    margin-top: 18px;
+    font-size: 13px; color: var(--ink);
+  }
+  .compare .row { display: flex; justify-content: space-between; padding: 4px 0; }
+  .compare .mamba { color: var(--primary); font-weight: 700; }
+  .compare .trans { color: var(--gap); font-weight: 700; }
+
+  footer {
+    padding: 20px 48px;
+    border-top: 1px solid var(--rule);
+    color: var(--body); font-size: 12px;
+  }
+
+  @media (max-width: 1000px) {
+    .cortex-row, .chart-wrap { grid-template-columns: 1fr; }
+    .summary { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>BOLDcast — interactive tokenization &amp; scaling</h1>
+  <p class="sub">
+    1,024 atlas-free geodesic patches on the cortical surface · linear-time
+    sequence modelling at <code>T</code> = 256 TRs · companion to the seed-grant pitch deck
+  </p>
+  <p class="ack">
+    Surface: Conte69 fs_LR 32k (brainspace) · ROI mask: HCPpipelines public template ·
+    patch assignment: <code>cache/patches_fsLR_32k_n1024_seed0_geo.npz</code> from Day-1
+  </p>
+</header>
+
+<main>
+
+<!-- ============================================================ -->
+<!-- Section 1: tokenization                                       -->
+<!-- ============================================================ -->
+<section id="tokenization">
+  <h2>Tokenization · 1,024 geodesic patches on the cortical surface</h2>
+  <p class="lede">
+    Click anywhere on either hemisphere to inspect the patch under the cursor.
+    Per-hemisphere FPS on the geodesic distance graph + Lloyd relaxation —
+    no atlas commitment, no within-parcel averaging.
+  </p>
+
+  <div class="cortex-row">
+    <div class="hemi" data-hemi="lh">
+      <span class="label">left lateral · 512 patches</span>
+      <img class="display" src="cortex_lh_display.png" alt="Left hemisphere lateral view with 512 geodesic patches">
+      <canvas class="overlay"></canvas>
+    </div>
+    <div class="hemi" data-hemi="rh">
+      <span class="label">right lateral · 512 patches</span>
+      <img class="display" src="cortex_rh_display.png" alt="Right hemisphere lateral view with 512 geodesic patches">
+      <canvas class="overlay"></canvas>
+    </div>
+    <aside class="info-card" id="patch-info">
+      <h3>Selected patch</h3>
+      <p class="placeholder">Click anywhere on the cortex.</p>
+    </aside>
+  </div>
+
+  <div class="summary">
+    <div class="stat"><div class="label">Patches</div><div class="value">1,024</div></div>
+    <div class="stat"><div class="label">+ subcortex k-means</div><div class="value">+768</div></div>
+    <div class="stat"><div class="label">Total tokens / TR</div><div class="value">1,792</div></div>
+    <div class="stat"><div class="label">Round-trip residual</div><div class="value">6.2 × 10⁻¹¹</div></div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!-- Section 2: memory scaling                                     -->
+<!-- ============================================================ -->
+<section id="scaling">
+  <h2>Why Mamba · linear vs quadratic memory in <code>T</code></h2>
+  <p class="lede">
+    Drag the slider to vary sequence length <code>T</code> (in TRs). Mamba activation
+    memory grows linearly; transformer attention grows quadratically and crosses
+    the practical H200 ceiling well below the naturalistic-fMRI operating point.
+    Anchored on the demo's measured 6.09 GB F+B at <code>T</code> = 256.
+  </p>
+
+  <div class="chart-wrap">
+    <div id="scaling-chart"></div>
+    <aside class="slider-card">
+      <label for="T-slider">Sequence length T</label>
+      <input id="T-slider" type="range" min="32" max="1024" value="256" step="8">
+      <div class="readout"><span id="T-readout">256</span> TRs</div>
+
+      <div class="compare">
+        <div class="row">
+          <span>Mamba — O(T)</span>
+          <span class="mamba" id="mamba-readout">6.09 GB</span>
+        </div>
+        <div class="row">
+          <span>Transformer — O(T²)</span>
+          <span class="trans" id="trans-readout">48.7 GB</span>
+        </div>
+        <div class="row">
+          <span>H200 practical ceiling</span>
+          <span style="color:var(--body)">~100 GB</span>
+        </div>
+        <div class="row">
+          <span>Working-window target</span>
+          <span style="color:var(--body)">256–1024 TRs</span>
+        </div>
+      </div>
+    </aside>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  Interactive demo · BOLDcast seed-grant pitch · companion to
+  <code>talk/seed_pitch.md</code> · static page, no model loaded in browser
+</footer>
+
+<script>
+// ============================================================
+// Cortex click-pick
+// ============================================================
+const patchInfoEl = document.getElementById('patch-info');
+let META = null;
+let pickingCanvas = {lh: null, rh: null};
+let pickingCtx = {lh: null, rh: null};
+let overlayCtx = {lh: null, rh: null};
+
+function loadPickingImage(hemi) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      const c = document.createElement('canvas');
+      c.width = img.naturalWidth;
+      c.height = img.naturalHeight;
+      const ctx = c.getContext('2d', {willReadFrequently: true});
+      ctx.drawImage(img, 0, 0);
+      pickingCanvas[hemi] = c;
+      pickingCtx[hemi] = ctx;
+      resolve();
+    };
+    img.onerror = reject;
+    img.src = `cortex_${hemi}_picking.png`;
+  });
+}
+
+function setupOverlay(hemi) {
+  const wrap = document.querySelector(`.hemi[data-hemi="${hemi}"]`);
+  const overlay = wrap.querySelector('canvas.overlay');
+  const display = wrap.querySelector('img.display');
+  function size() {
+    const r = wrap.getBoundingClientRect();
+    overlay.width = pickingCanvas[hemi].width;
+    overlay.height = pickingCanvas[hemi].height;
+    overlay.style.width = r.width + 'px';
+    overlay.style.height = r.height + 'px';
+  }
+  if (display.complete) size();
+  display.addEventListener('load', size);
+  window.addEventListener('resize', size);
+  overlayCtx[hemi] = overlay.getContext('2d');
+  return wrap;
+}
+
+function pixelToPatchId(hemi, cssX, cssY, wrapRect) {
+  const sx = (cssX / wrapRect.width)  * pickingCanvas[hemi].width;
+  const sy = (cssY / wrapRect.height) * pickingCanvas[hemi].height;
+  if (sx < 0 || sy < 0 || sx >= pickingCanvas[hemi].width || sy >= pickingCanvas[hemi].height) return null;
+  const px = pickingCtx[hemi].getImageData(Math.floor(sx), Math.floor(sy), 1, 1).data;
+  // Cortex sentinel: B == 255. Medial wall / outside: B == 0 (or alpha == 0).
+  if (px[3] < 200 || px[2] < 200) return null;
+  return (px[0] << 8) | px[1];
+}
+
+function highlightPatch(hemi, patchId) {
+  // For each overlay (both hemispheres), repaint with the patch's pixels
+  // tinted with a bright contrast color.
+  for (const h of ['lh', 'rh']) {
+    const ctx = overlayCtx[h];
+    const w = pickingCanvas[h].width, ht = pickingCanvas[h].height;
+    ctx.clearRect(0, 0, w, ht);
+    if (h !== hemi) continue;
+    const data = pickingCtx[h].getImageData(0, 0, w, ht).data;
+    const tint = ctx.getImageData(0, 0, w, ht);
+    const t = tint.data;
+    const targetR = (patchId >> 8) & 0xFF;
+    const targetG = patchId & 0xFF;
+    // Bright cadmium-yellow on the patch, transparent elsewhere.
+    for (let i = 0; i < data.length; i += 4) {
+      if (data[i] === targetR && data[i+1] === targetG && data[i+2] >= 200) {
+        t[i]   = 255;
+        t[i+1] = 222;
+        t[i+2] = 0;
+        t[i+3] = 220;
+      }
+    }
+    ctx.putImageData(tint, 0, 0);
+  }
+}
+
+function clearOverlays() {
+  for (const h of ['lh', 'rh']) {
+    const ctx = overlayCtx[h];
+    if (ctx) ctx.clearRect(0, 0, pickingCanvas[h].width, pickingCanvas[h].height);
+  }
+}
+
+function showPatch(patchId) {
+  const entry = META.patches[patchId];
+  const hemiName = entry.hemisphere === 'LH' ? 'left' : 'right';
+  patchInfoEl.innerHTML = `
+    <h3>Selected patch</h3>
+    <div class="info-row highlight"><span class="k">Patch ID</span><span class="v">${patchId}</span></div>
+    <div class="info-row"><span class="k">Hemisphere</span><span class="v">${hemiName} (${entry.hemisphere})</span></div>
+    <div class="info-row"><span class="k">Vertices</span><span class="v">${entry.n_vertices}</span></div>
+    <div class="info-row"><span class="k">Per-token feature</span><span class="v">mean BOLD</span></div>
+    <div class="info-row"><span class="k">Round-trip residual</span><span class="v">6.2 × 10⁻¹¹</span></div>
+  `;
+}
+
+function showEmpty() {
+  patchInfoEl.innerHTML = `
+    <h3>Selected patch</h3>
+    <p class="placeholder">Click anywhere on the cortex.</p>
+  `;
+}
+
+async function initCortex() {
+  META = await fetch('patch_meta.json').then(r => r.json());
+  await Promise.all([loadPickingImage('lh'), loadPickingImage('rh')]);
+  const wraps = {lh: setupOverlay('lh'), rh: setupOverlay('rh')};
+
+  for (const hemi of ['lh', 'rh']) {
+    wraps[hemi].addEventListener('click', (e) => {
+      const r = wraps[hemi].getBoundingClientRect();
+      const cssX = e.clientX - r.left;
+      const cssY = e.clientY - r.top;
+      const pid = pixelToPatchId(hemi, cssX, cssY, r);
+      if (pid === null) { clearOverlays(); showEmpty(); return; }
+      highlightPatch(hemi, pid);
+      showPatch(pid);
+    });
+  }
+}
+
+// ============================================================
+// Memory scaling chart
+// ============================================================
+function plotScaling() {
+  const T = [];
+  for (let t = 16; t <= 1024; t += 16) T.push(t);
+  // Mamba: linear, anchored on 6.09 GB at T=256, P=1024 demo
+  const mamba = T.map(t => 6.09 * (t / 256));
+  // Transformer dense attention: O(T^2), matched to mamba at T=32
+  const coef = (6.09 * 32 / 256) / (32 * 32);
+  const trans = T.map(t => coef * t * t);
+
+  const data = [
+    {
+      x: T, y: mamba,
+      name: 'Mamba — O(T)',
+      mode: 'lines',
+      line: {color: '#002896', width: 3.5},
+      hovertemplate: '<b>Mamba</b><br>T=%{x} TRs<br>%{y:.2f} GB<extra></extra>',
+    },
+    {
+      x: T, y: trans,
+      name: 'Transformer attention — O(T²)',
+      mode: 'lines',
+      line: {color: '#750014', width: 3.5},
+      hovertemplate: '<b>Transformer</b><br>T=%{x} TRs<br>%{y:.2f} GB<extra></extra>',
+    },
+    {
+      x: [256], y: [6.09],
+      mode: 'markers+text',
+      name: 'BOLDcast demo (measured)',
+      marker: {size: 16, color: '#004d1a', line: {color: '#212326', width: 1.5}},
+      text: ['6.09 GB measured · H200'],
+      textposition: 'middle right',
+      textfont: {color: '#004d1a', size: 12},
+      hovertemplate: 'BOLDcast demo measured<br>6.09 GB F+B on H200<extra></extra>',
+    },
+    {
+      x: [256, 1024], y: [100, 100],
+      mode: 'lines',
+      name: 'H200 practical ceiling',
+      line: {color: '#750014', width: 1.5, dash: 'dash'},
+      showlegend: false,
+      hoverinfo: 'skip',
+    },
+  ];
+
+  const layout = {
+    paper_bgcolor: '#f2f4f8',
+    plot_bgcolor:  '#ffffff',
+    font: {family: 'Inter, Helvetica Neue, Arial, sans-serif', color: '#212326'},
+    margin: {l: 60, r: 30, t: 30, b: 60},
+    xaxis: {
+      type: 'log',
+      title: {text: 'Sequence length T (TRs, log scale)', font: {color: '#626a73'}},
+      tickvals: [32, 64, 128, 256, 512, 1024],
+      ticktext: ['32', '64', '128', '256', '512', '1024'],
+      gridcolor: '#dde1e6',
+    },
+    yaxis: {
+      type: 'log',
+      title: {text: 'Activation memory per sample (GB)', font: {color: '#626a73'}},
+      range: [Math.log10(1), Math.log10(2e3)],
+      gridcolor: '#dde1e6',
+    },
+    legend: {
+      orientation: 'h', x: 0, y: -0.18,
+      font: {size: 12},
+    },
+    shapes: [
+      // Highlight band for naturalistic-fMRI working window
+      {
+        type: 'rect',
+        x0: 256, x1: 1024,
+        y0: 1, y1: 2e3,
+        fillcolor: '#002896',
+        opacity: 0.06,
+        line: {width: 0},
+        layer: 'below',
+      },
+      // T cursor
+      {
+        type: 'line',
+        x0: 256, x1: 256,
+        y0: 1, y1: 2e3,
+        line: {color: '#8b959e', width: 1.2, dash: 'dot'},
+      },
+    ],
+    annotations: [{
+      x: Math.log10(450), y: Math.log10(900),
+      xref: 'x', yref: 'y',
+      text: 'naturalistic-fMRI<br>working window',
+      showarrow: false,
+      font: {color: '#002896', size: 12, style: 'italic'},
+    }],
+  };
+
+  Plotly.newPlot('scaling-chart', data, layout, {responsive: true, displayModeBar: false});
+
+  const slider = document.getElementById('T-slider');
+  const tEl = document.getElementById('T-readout');
+  const mEl = document.getElementById('mamba-readout');
+  const trEl = document.getElementById('trans-readout');
+  slider.addEventListener('input', () => {
+    const t = +slider.value;
+    tEl.textContent = t;
+    const m = 6.09 * (t / 256);
+    const tr = coef * t * t;
+    mEl.textContent = m.toFixed(2) + ' GB';
+    trEl.textContent = tr < 1e3 ? tr.toFixed(2) + ' GB' : (tr / 1e3).toFixed(2) + ' TB';
+    // move the cursor line on the chart
+    Plotly.relayout('scaling-chart', {
+      'shapes[1].x0': t, 'shapes[1].x1': t,
+    });
+  });
+}
+
+// boot
+initCortex().catch(err => {
+  console.error(err);
+  patchInfoEl.innerHTML = `
+    <h3>Selected patch</h3>
+    <p class="placeholder" style="color:var(--gap)">
+      Couldn't load picking PNG (probably file:// CORS).
+      Serve via <code>python -m http.server</code> from this directory.
+    </p>
+  `;
+});
+plotScaling();
+</script>
+
+</body>
+</html>
