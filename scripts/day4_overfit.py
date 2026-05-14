@@ -233,10 +233,17 @@ def main() -> int:
     # the per-horizon floor is ~1 - rho(h)^2, and rho(5) ~ 0.6 on BOLD,
     # giving an irreducible floor much higher than 1% of initial.
     window = 50
+    if len(history["loss"]) < window:
+        raise SystemExit(
+            f"[day4] need at least {window} steps for windowed acceptance, "
+            f"got {len(history['loss'])}."
+        )
     initial = history["loss"][0]
     final = history["loss"][-1]
-    initial_window = sum(history["loss"][:window]) / window
-    final_window = sum(history["loss"][-window:]) / window
+    initial_slice = history["loss"][:window]
+    final_slice = history["loss"][-window:]
+    initial_window = sum(initial_slice) / len(initial_slice)
+    final_window = sum(final_slice) / len(final_slice)
     ratio = final_window / initial_window if initial_window > 0 else float("inf")
     print(
         f"[day4] initial loss = {initial:.6f}  final loss = {final:.6f}"

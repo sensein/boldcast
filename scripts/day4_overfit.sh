@@ -8,6 +8,10 @@
 #SBATCH --output=logs/day4_overfit_%j.out
 #SBATCH --error=logs/day4_overfit_%j.err
 
+# Partition: mit_normal_gpu (104 H200s across 13 nodes). pi_satra was
+# the original Day-4 venue but had no GPU availability on 2026-05-13;
+# mit_normal_gpu is the canonical Day-4 partition going forward.
+
 set +u
 source ~/.bashrc
 micromamba activate $BOLDCAST_ENV

@@ -10,6 +10,11 @@
 
 # Day-4 ADR-0005-D5 retest: probe the empirical MSE floor at higher LR
 # and longer run, to inform spec-acceptance update (Path A).
+#
+# Historical: this script reproduces the 2026-05-13 sanity-check run
+# (job 13888490) that informed ADR 0005 D8. After the spec revision the
+# canonical Day-4 run lives in day4_overfit.sh; this script is preserved
+# for reproducibility, hence the original pi_satra partition.
 
 set +u
 source ~/.bashrc
