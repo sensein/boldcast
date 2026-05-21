@@ -211,10 +211,17 @@ def _render_patch_figure(
     cortex_rh: np.ndarray,
     out: str,
 ) -> None:
-    """Save a 2-panel LH/RH cortex figure colored by patch ID."""
+    """Save a 2-panel LH/RH cortex figure colored by patch ID.
+
+    Uses Poly3DCollection with explicit per-face RGB (sidesteps colormap
+    normalization + masked-array bugs in plot_trisurf 3D). Muted HSV palette
+    + Phong shading so cortical folds read through the random-per-patch
+    coloring. Medial wall (non-cortex vertices) rendered neutral grey.
+    """
     import matplotlib.pyplot as plt
     from boldcast.io.cifti import load_gifti_surface
-    from matplotlib.colors import ListedColormap
+    from matplotlib.colors import hsv_to_rgb
+    from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
     n_lh = cortex_lh.shape[0]
     lh_assignment = assignment[:n_lh]
@@ -222,37 +229,62 @@ def _render_patch_figure(
 
     rng = np.random.default_rng(0)
     n_patches = int(assignment.max()) + 1
-    cmap = ListedColormap(rng.random((n_patches, 3)))
+    # Muted HSV — low saturation so the cortex shape reads through random
+    # per-patch coloring without horizontal-stripe artefacts.
+    h = rng.random(n_patches)
+    s = rng.uniform(0.20, 0.45, n_patches)
+    v = rng.uniform(0.60, 0.85, n_patches)
+    rgb = hsv_to_rgb(np.stack([h, s, v], axis=1))
+    MEDIAL_GREY = np.array([0.86, 0.86, 0.86])
 
-    fig = plt.figure(figsize=(12, 6))
-    for col, (mesh_path, hem_assignment, cortex_idx, title) in enumerate(
-        [
-            (lh_mesh, lh_assignment, cortex_lh, "LH"),
-            (rh_mesh, rh_assignment, cortex_rh, "RH"),
-        ]
+    views = [("LH", -90, 0), ("RH", 90, 0)]
+
+    fig = plt.figure(figsize=(11, 4.5))
+    for col, ((mesh_path, hem_assignment, cortex_idx), (title, azim, elev)) in enumerate(
+        zip(
+            [
+                (lh_mesh, lh_assignment, cortex_lh),
+                (rh_mesh, rh_assignment, cortex_rh),
+            ],
+            views,
+        )
     ):
         verts, faces = load_gifti_surface(mesh_path)
-        per_vertex = np.full(verts.shape[0], -1, dtype=np.int32)
+        per_vertex = np.full(verts.shape[0], -1, dtype=np.int64)
         per_vertex[cortex_idx] = hem_assignment
 
-        ax = fig.add_subplot(1, 2, col + 1, projection="3d")
-        face_color = per_vertex[faces[:, 0]].astype(np.float32)
-        ax.plot_trisurf(
-            verts[:, 0],
-            verts[:, 1],
-            verts[:, 2],
-            triangles=faces,
-            array=face_color,
-            cmap=cmap,
-            shade=False,
-            linewidth=0,
+        # Face's patch ID = per-vertex ID of the face's first vertex.
+        # -1 → medial wall → render neutral grey.
+        face_pids = per_vertex[faces[:, 0]]
+        face_colors = np.where(
+            (face_pids >= 0)[:, None],
+            rgb[np.clip(face_pids, 0, n_patches - 1)],
+            MEDIAL_GREY[None, :],
         )
-        ax.set_title(title)
+
+        ax = fig.add_subplot(1, 2, col + 1, projection="3d")
+        triangles = verts[faces]
+        pc = Poly3DCollection(
+            triangles, facecolors=face_colors, linewidths=0, shade=True,
+        )
+        pc.set_edgecolor(face_colors)  # match edges to faces to hide mesh lines
+        ax.add_collection3d(pc)
+
+        # Equal-aspect 3D bounding box so the cortex isn't squashed
+        mins = verts.min(axis=0)
+        maxs = verts.max(axis=0)
+        mid = (mins + maxs) / 2
+        max_range = (maxs - mins).max() / 2
+        ax.set_xlim(mid[0] - max_range, mid[0] + max_range)
+        ax.set_ylim(mid[1] - max_range, mid[1] + max_range)
+        ax.set_zlim(mid[2] - max_range, mid[2] + max_range)
+
+        ax.view_init(elev=elev, azim=azim)
+        ax.set_title(title, fontsize=16, fontweight="bold", pad=2)
         ax.set_axis_off()
 
-    fig.suptitle(f"Day 1: {n_patches} cortical patches (random colormap)")
-    fig.tight_layout()
-    fig.savefig(out, dpi=150)
+    fig.subplots_adjust(left=0.0, right=1.0, top=0.96, bottom=0.0, wspace=-0.05)
+    fig.savefig(out, dpi=150, bbox_inches="tight", facecolor="white", pad_inches=0.05)
     plt.close(fig)
 
 
