@@ -19,6 +19,12 @@ figures/*
 # Local configs
 configs/local.yaml
 
+# Personal working docs (proposals, drafts, K99 prelim outline once it
+# moves to the formal destination). Committed docs live under docs/methods.md,
+# docs/10_day_plan.md, docs/adr/, etc. — see Yibei before adding new tracked
+# docs.
+docs/proposal.md
+
 # SLURM logs
 logs/
 
