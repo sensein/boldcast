@@ -4,6 +4,7 @@ CLAUDE.md
 # BOLDcast: generated artifacts (everything except the .gitkeep markers)
 cache/*
 !cache/.gitkeep
+data/*
 results/*
 !results/.gitkeep
 figures/*
