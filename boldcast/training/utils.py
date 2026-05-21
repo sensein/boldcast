@@ -17,7 +17,7 @@ import numpy as np
 import torch
 from torch import nn
 
-__all__ = ["JsonlLogger", "save_checkpoint", "seed_everything"]
+__all__ = ["JsonlLogger", "heldout_decreased_by", "save_checkpoint", "seed_everything"]
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -45,6 +45,49 @@ def seed_everything(seed: int) -> None:
         "CUBLAS_WORKSPACE_CONFIG=%s",
         os.environ.get("CUBLAS_WORKSPACE_CONFIG", "<not set>"),
     )
+
+
+def heldout_decreased_by(
+    history: dict[str, list[float]],
+    frac: float = 0.30,
+    window: int = 3,
+) -> bool:
+    """Return True if held-out val loss dropped by at least ``frac``.
+
+    Compares the mean of the last ``window`` ``history['val_loss']``
+    values to the mean of the first ``window``. Returns True iff
+    ``mean(last) <= (1 - frac) * mean(first)``.
+
+    Used at end of Day-5 training to assert acceptance criterion #2
+    (≥30% drop) without binding to a single-step threshold (seed-
+    independent per schist ID 229).
+
+    Parameters
+    ----------
+    history
+        Trainer.fit return dict; must have key ``'val_loss'``.
+    frac
+        Required drop fraction (0.30 = 30%).
+    window
+        Number of measurements to average at each end.
+
+    Returns
+    -------
+    bool
+        True if the drop criterion holds, False otherwise (including
+        if val_loss has fewer than ``2 * window`` entries).
+
+    Raises
+    ------
+    KeyError
+        If history does not have key ``'val_loss'``.
+    """
+    losses = history["val_loss"]
+    if len(losses) < 2 * window:
+        return False
+    first_mean = sum(losses[:window]) / window
+    last_mean = sum(losses[-window:]) / window
+    return last_mean <= (1.0 - frac) * first_mean
 
 
 def save_checkpoint(
