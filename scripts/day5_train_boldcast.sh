@@ -3,7 +3,7 @@
 #SBATCH --gres=gpu:h200:2
 #SBATCH --cpus-per-task=16
 #SBATCH --mem=128G
-#SBATCH --time=08:00:00
+#SBATCH --time=06:00:00
 #SBATCH --job-name=day5_train
 #SBATCH --output=logs/day5_train_%j.out
 #SBATCH --error=logs/day5_train_%j.err
