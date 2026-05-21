@@ -94,6 +94,9 @@ baseline:
   schaefer_dlabel: ${oc.env:DATA,/tmp}/atlases/Schaefer2018_400Parcels_17Networks_order_fslr32k.dlabel.nii
   n_rois: 400
   cache_dir: ${oc.env:SCRATCH,/tmp}/boldcast/cache_demo_schaefer
+  # Separate kNN cache from the BOLDcast 1024-patch one — the centroid
+  # geometry and parcel count differ.
+  knn_cache: cache/knn_k8_schaefer400.npz
   out_dir: results/day6_baseline
 
 # Distributed ----------------------------------------------------------------
