@@ -306,9 +306,13 @@ class Trainer:
                             total_loss += float(loss.item())
                             n_batches += 1
                     mean_loss = total_loss / max(n_batches, 1)
-                    result = torch.tensor(mean_loss, dtype=torch.float64)
+                    result = torch.tensor(
+                        mean_loss, dtype=torch.float64, device=self.device
+                    )
                 else:
-                    result = torch.tensor(0.0, dtype=torch.float64)
+                    result = torch.zeros((), dtype=torch.float64, device=self.device)
+                # NCCL has no CPU backend — the broadcast tensor must live on
+                # the device backing the process group (CUDA under NCCL).
                 dist.broadcast(result, src=0)
                 dist.barrier()
                 return float(result.item())

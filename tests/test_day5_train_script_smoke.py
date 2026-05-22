@@ -70,7 +70,7 @@ def test_day5_sh_script_is_valid_bash() -> None:
         "--gres=gpu:h200:2",
         "--cpus-per-task=16",
         "--mem=128G",
-        "--time=08:00:00",
+        "--time=06:00:00",
     ]:
         assert directive in content, f"Missing SBATCH directive: {directive}"
     # Required body

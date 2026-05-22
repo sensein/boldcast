@@ -18,6 +18,7 @@ from collections.abc import Iterator
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
 import torch
 from boldcast.models.boldcast_demo import BOLDcastDemo
 from boldcast.training.optim import build_optimizer
@@ -300,3 +301,68 @@ def test_eval_runs_under_no_grad(tmp_path: Path) -> None:
     # _eval must not accumulate gradients
     for p in trainer.model.parameters():
         assert p.grad is None, "gradients should not be accumulated by _eval"
+
+
+@pytest.mark.parametrize("rank_zero", [True, False])
+def test_eval_broadcast_tensor_on_trainer_device(
+    tmp_path: Path, rank_zero: bool
+) -> None:
+    """Regression for sbatch 14220441: dist.broadcast must receive a tensor on
+    trainer.device, not the default CPU — on BOTH the rank-0 and non-rank-0
+    construction paths.
+
+    Under NCCL, broadcasting a CPU tensor raises
+    ``RuntimeError: No backend type associated with device type cpu``.
+    The fix is to construct the broadcast tensor with ``device=self.device``
+    in both ``_eval`` branches (rank-0 uses ``torch.tensor(mean_loss, …)``,
+    other ranks use ``torch.zeros((), …)``).
+
+    On a CPU-only test runner, ``self.device == cpu`` and the default
+    placement is also CPU — a tensor-location check alone would pass even
+    with the bug. Instead, we wrap ``torch.tensor`` / ``torch.zeros`` and
+    assert that the call site passed an explicit ``device=`` kwarg matching
+    ``self.device``. That is the invariant that breaks the NCCL path.
+    """
+    _, _, _, trainer = _build_tiny_setup(tmp_path, n_data=5)
+    # Bare list iterable — DataLoader probes dist.get_world_size when
+    # is_initialized() is True, which would fail under our mock.
+    val_batches: list[dict[str, torch.Tensor]] = [
+        {"tokens": torch.randn(1, 16, 8)} for _ in range(3)
+    ]
+    with (
+        patch("boldcast.training.trainer.dist.is_initialized", return_value=True),
+        patch(
+            "boldcast.training.trainer.is_rank_zero", return_value=rank_zero
+        ),
+        patch("boldcast.training.trainer.dist.broadcast"),
+        patch("boldcast.training.trainer.dist.barrier"),
+        patch.object(torch, "tensor", wraps=torch.tensor) as mock_tensor,
+        patch.object(torch, "zeros", wraps=torch.zeros) as mock_zeros,
+    ):
+        trainer._eval(val_batches)  # type: ignore[arg-type]
+
+    if rank_zero:
+        # Rank-0 path constructs the result via torch.tensor(mean_loss, …).
+        calls = [
+            call for call in mock_tensor.call_args_list
+            if call.kwargs.get("dtype") is torch.float64
+        ]
+        ctor = "torch.tensor"
+    else:
+        # Non-rank-0 path uses torch.zeros((), …).
+        calls = [
+            call for call in mock_zeros.call_args_list
+            if call.kwargs.get("dtype") is torch.float64
+        ]
+        ctor = "torch.zeros"
+    assert calls, (
+        f"expected a {ctor}(…, dtype=float64, …) call in _eval on "
+        f"rank_zero={rank_zero}"
+    )
+    for call in calls:
+        assert call.kwargs.get("device") == trainer.device, (
+            f"_eval result tensor constructed via {ctor} without "
+            f"device=self.device on rank_zero={rank_zero} "
+            f"(got device={call.kwargs.get('device')!r}, "
+            f"expected {trainer.device!r}). NCCL will reject a CPU tensor."
+        )
