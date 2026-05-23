@@ -303,6 +303,88 @@ def test_eval_runs_under_no_grad(tmp_path: Path) -> None:
         assert p.grad is None, "gradients should not be accumulated by _eval"
 
 
+def test_eval_uses_unwrapped_module_under_ddp(tmp_path: Path) -> None:
+    """Regression for Day-5 NCCL deadlock (sbatch 14282858 / Issue #16):
+    ``_eval``'s rank-0-only forward MUST go through the unwrapped module
+    (``model.module``), NOT the DDP wrapper.
+
+    The DDP wrapper calls ``_sync_buffers()`` at the start of forward
+    whenever ``require_forward_param_sync=True`` (which it is immediately
+    after each ``loss.backward()``). ``_sync_buffers`` issues a broadcast
+    collective on rank 0 with no matching call on rank 1 (rank 1 is
+    already waiting at the explicit ``dist.broadcast(result, src=0)``
+    further down). The mismatched broadcast shifts NCCL SeqNum alignment
+    by 1 across both ranks → the subsequent ``dist.broadcast(result, …)``
+    and ``dist.barrier()`` land on different op types between ranks →
+    NCCL deadlocks at the next ALLREDUCE.
+
+    BOLDcastDemo has 4 ``KNNAttention.adjacency`` buffers (``spatial.py:53``)
+    plus any future BN/LN running stats — any non-empty buffer set triggers
+    this collective. The fix forwards through ``getattr(self.model,
+    "module", self.model)`` on the rank-0 eval path so DDP's forward-time
+    machinery is bypassed entirely.
+
+    Test discrimination: a fake DDP-like wrap exposes ``.module`` and
+    increments ``wrapper_forward_calls`` when its own forward runs. If
+    ``_eval`` forwards through the wrapper, the counter goes up and the
+    assertion fails. If ``_eval`` forwards through ``.module`` directly,
+    the wrapper's forward is never entered.
+    """
+    _, _, _, trainer = _build_tiny_setup(tmp_path, n_data=5)
+    real_model = trainer.model
+
+    wrapper_forward_calls: list[int] = []
+    inner_forward_calls: list[int] = []
+
+    class _FakeDDPWrap(torch.nn.Module):
+        """Mimics DDP's surface: exposes ``.module`` and a forward that
+        would be the place where DDP's ``_sync_buffers`` runs."""
+
+        def __init__(self, inner: torch.nn.Module) -> None:
+            super().__init__()
+            self.module = inner
+
+        def forward(self, *args: object, **kwargs: object) -> torch.Tensor:
+            wrapper_forward_calls.append(1)
+            out: torch.Tensor = self.module(*args, **kwargs)
+            return out
+
+    # Also instrument the inner forward so the test fails loudly if _eval
+    # somehow skips the forward pass entirely (which would trivially keep
+    # wrapper_forward_calls at zero).
+    orig_inner_forward = real_model.forward
+
+    def _spy_inner_forward(*args: object, **kwargs: object) -> torch.Tensor:
+        inner_forward_calls.append(1)
+        return orig_inner_forward(*args, **kwargs)  # type: ignore[no-any-return]
+
+    real_model.forward = _spy_inner_forward  # type: ignore[method-assign]
+    trainer.model = _FakeDDPWrap(real_model)
+
+    val_batches: list[dict[str, torch.Tensor]] = [
+        {"tokens": torch.randn(1, 16, 8)} for _ in range(3)
+    ]
+    with (
+        patch("boldcast.training.trainer.dist.is_initialized", return_value=True),
+        patch("boldcast.training.trainer.is_rank_zero", return_value=True),
+        patch("boldcast.training.trainer.dist.broadcast"),
+        patch("boldcast.training.trainer.dist.barrier"),
+    ):
+        trainer._eval(val_batches)  # type: ignore[arg-type]
+
+    assert inner_forward_calls, (
+        "_eval did not forward through the inner model at all — test cannot "
+        "discriminate. Expected len(val_batches)=3 inner forwards."
+    )
+    assert not wrapper_forward_calls, (
+        f"_eval forwarded through the DDP wrapper {len(wrapper_forward_calls)} "
+        "time(s) on rank-0. DDP.forward() triggers _sync_buffers() which "
+        "issues a broadcast collective with no matching call on rank 1, "
+        "deadlocking NCCL. _eval must forward through model.module on the "
+        "rank-0-only branch."
+    )
+
+
 @pytest.mark.parametrize("rank_zero", [True, False])
 def test_eval_broadcast_tensor_on_trainer_device(
     tmp_path: Path, rank_zero: bool

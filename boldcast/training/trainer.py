@@ -286,6 +286,16 @@ class Trainer:
         try:
             if dist.is_initialized():
                 if is_rank_zero():
+                    # Forward through the UNWRAPPED module. DDP.forward() calls
+                    # _sync_buffers() at the start of every forward (whenever
+                    # require_forward_param_sync=True, which it is right after
+                    # backward), issuing a broadcast collective from rank 0 to
+                    # all other ranks. Other ranks are NOT here — they fall
+                    # straight to dist.broadcast(result, src=0) below. The
+                    # unmatched buffer broadcast shifts NCCL SeqNum alignment
+                    # by 1 across ranks → subsequent collectives mismatch in
+                    # op type → deadlock. Issue #16 / sbatch 14282858.
+                    eval_module = getattr(self.model, "module", self.model)
                     total_loss = 0.0
                     n_batches = 0
                     with torch.no_grad():
@@ -300,7 +310,7 @@ class Trainer:
                                     and self.device.type == "cuda"
                                 ),
                             ):
-                                pred_full: torch.Tensor = self.model(tokens)
+                                pred_full: torch.Tensor = eval_module(tokens)
                                 pred = pred_full[:, : targets.shape[1]]
                                 loss = forecasting_loss(pred, targets)
                             total_loss += float(loss.item())
