@@ -32,6 +32,7 @@ from torch import nn
 from torch.utils.data import DataLoader, Dataset
 
 __all__ = [
+    "binomial_ci_topk",
     "bootstrap_ci_topk",
     "extract_embeddings",
     "paired_mcnemar",
@@ -219,6 +220,17 @@ def bootstrap_ci_topk(
     correlation correctly: if subject 17 happens to be over-represented
     in a resample, all four of its runs come with it.
 
+    Caveat — cluster-collapse pathology
+    ------------------------------------
+    When a subject is drawn twice in a resample, the two relabeled
+    "new subjects" share identical embeddings → their gallery vs probe
+    comparisons cannot discriminate them → retrieval accuracy
+    artificially drops on those resamples → CIs collapse toward zero
+    when ``n_subjects`` is small and embeddings are well-clustered.
+    The resulting CI can even sit *below* the point estimate.
+    See :func:`binomial_ci_topk` for the recommended replacement in
+    that regime.
+
     Returns
     -------
     (point_estimate, ci_low, ci_high)
@@ -250,6 +262,76 @@ def bootstrap_ci_topk(
     alpha = (1.0 - ci) / 2.0
     lo, hi = np.percentile(boot_accs, [100.0 * alpha, 100.0 * (1.0 - alpha)])
     return float(point), float(lo), float(hi)
+
+
+def binomial_ci_topk(
+    embeddings: NDArray[np.float32],
+    subject_ids: NDArray[np.int64],
+    k: int = 1,
+    ci: float = 0.95,
+) -> tuple[float, float, float]:
+    """Clopper-Pearson exact binomial CI on top-k accuracy.
+
+    Each of the ``N`` probe outcomes is treated as an independent
+    Bernoulli trial (1 if the true subject is in the top-k retrieved
+    subjects, else 0). The reported CI is the standard Clopper-Pearson
+    exact 95% interval derived from the Beta-inverse-CDF.
+
+    This is the **recommended CI** when:
+
+    * ``n_subjects`` is small (<= 10), AND
+    * embeddings are well-clustered (top-k accuracy >> chance).
+
+    Both regimes break the subject-resample bootstrap in
+    :func:`bootstrap_ci_topk`: when a subject is drawn twice, the two
+    relabeled "new subjects" become indistinguishable in retrieval, and
+    bootstrap CIs collapse toward zero. The exact binomial CI sidesteps
+    that by not re-running retrieval per resample — it just inverts the
+    binomial distribution around the observed correct-count.
+
+    The binomial CI assumes per-probe outcomes are independent. With
+    multiple runs of the same subject in the held-out set this is
+    mildly violated (runs share within-subject BOLD structure → some
+    positive within-subject correlation in correctness). The resulting
+    CI is therefore slightly anti-conservative on the upper bound, but
+    far more honest than the bootstrap pathology — and the convention
+    in the cluster-CI neuroimaging literature for small-n retrieval
+    benchmarks.
+
+    Parameters
+    ----------
+    embeddings : ndarray of shape (N, d_emb)
+        L2-normalized embeddings (one per (subject, run) pair).
+    subject_ids : ndarray of shape (N,)
+        Subject ID per row.
+    k : int, default 1
+        Top-k threshold.
+    ci : float in (0, 1), default 0.95
+        Confidence level.
+
+    Returns
+    -------
+    (point_estimate, ci_low, ci_high)
+    """
+    if not (0 < ci < 1):
+        raise ValueError(f"ci must be in (0, 1), got {ci}")
+    from scipy import stats  # local import: scipy only needed here
+
+    ranks = _per_run_predicted_rank(embeddings, subject_ids)
+    correct = int((ranks < k).sum())
+    n = int(ranks.shape[0])
+    if n == 0:
+        raise ValueError("binomial_ci_topk: embeddings is empty")
+
+    alpha = 1.0 - ci
+    lo = 0.0 if correct == 0 else float(
+        stats.beta.ppf(alpha / 2.0, correct, n - correct + 1)
+    )
+    hi = 1.0 if correct == n else float(
+        stats.beta.ppf(1.0 - alpha / 2.0, correct + 1, n - correct)
+    )
+    point = float(correct) / float(n)
+    return point, lo, hi
 
 
 def paired_mcnemar(
