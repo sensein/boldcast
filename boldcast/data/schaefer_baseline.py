@@ -40,21 +40,36 @@ __all__ = [
 def extract_cortex_labels_from_dlabel(
     label_data: NDArray[np.integer[Any]],
     brain_models: list[dict[str, Any]],
+    cortex_indices_lh: NDArray[np.integer[Any]],
+    cortex_indices_rh: NDArray[np.integer[Any]],
     n_rois: int,
 ) -> NDArray[np.int64]:
     """Slice cortex labels from a CIFTI dlabel and remap to 0-indexed parcels.
 
+    The CBIG Schaefer dlabel is published on the *full* fsLR_32k mesh
+    (32492 vertices per hemisphere), with medial-wall vertices labeled
+    0. HCP CIFTI grayordinates exclude the medial wall (29696 LH,
+    29716 RH). To align the two, we index into the full-mesh hemisphere
+    using the HCP grayordinate vertex indices from
+    :func:`boldcast._upstream.cifti_io.cortex_grayordinate_indices`.
+
     Parameters
     ----------
     label_data : ndarray of shape ``(1, V_grayordinates)`` or ``(V_grayordinates,)``
-        Integer label values per grayordinate.  Schaefer dlabels use
-        1-indexed parcel IDs (0 = background); we subtract 1 after
-        slicing to cortex grayordinates and require every cortex
-        grayordinate to carry a parcel label.
+        Integer label values per dlabel grayordinate.  Schaefer dlabels
+        use 1-indexed parcel IDs (0 = background medial wall); we
+        subtract 1 after slicing to HCP cortex vertices.
     brain_models : list of dict
-        Same structure as ``boldcast.io.cifti.load_dtseries`` returns
-        for the ``"brain_models"`` header key.  Each entry has
-        ``name``, ``slice``, ``vertex``, ``nvertex``.
+        Brain-models list from the dlabel's CIFTI BrainModelAxis.  Each
+        entry has ``name``, ``slice``, ``vertex``, ``nvertex``.  We use
+        the ``CIFTI_STRUCTURE_CORTEX_LEFT``/``_RIGHT`` slices to pick
+        out the per-hemisphere label arrays.
+    cortex_indices_lh : ndarray of int
+        HCP grayordinate vertex indices into the LH parent surface mesh,
+        as returned by ``cortex_grayordinate_indices`` for an HCP CIFTI
+        header.  Used to index *into* the LH dlabel hemisphere.
+    cortex_indices_rh : ndarray of int
+        Same for RH.
     n_rois : int
         Expected number of parcels (400 for Schaefer-400).  Every
         returned label must be in ``[0, n_rois)``.
@@ -74,22 +89,24 @@ def extract_cortex_labels_from_dlabel(
 
     lh = next(bm for bm in brain_models if bm["name"] == "CIFTI_STRUCTURE_CORTEX_LEFT")
     rh = next(bm for bm in brain_models if bm["name"] == "CIFTI_STRUCTURE_CORTEX_RIGHT")
-    lh_labels = flat[lh["slice"]]
-    rh_labels = flat[rh["slice"]]
+    lh_hemi = flat[lh["slice"]]
+    rh_hemi = flat[rh["slice"]]
+    lh_labels = lh_hemi[np.asarray(cortex_indices_lh, dtype=np.int64)]
+    rh_labels = rh_hemi[np.asarray(cortex_indices_rh, dtype=np.int64)]
     cortex_labels = np.concatenate([lh_labels, rh_labels]).astype(np.int64)
 
-    # Schaefer dlabels are 1-indexed: 0 is the "no-label" background.
-    # Cortex grayordinates from the CIFTI header should already exclude
-    # medial-wall vertices, so we expect zero background labels on
-    # cortex.  Fail loud if not — silent zeros would collapse the
-    # affected vertices into a phantom "parcel 0" later.
+    # Schaefer dlabels are 1-indexed: 0 is the "no-label" background
+    # (medial wall on the full fsLR_32k mesh). HCP cortex indices should
+    # skip those positions; if a 0 still leaks through, the indices are
+    # wrong and we'd silently collapse the affected grayordinates into
+    # a phantom "parcel 0" downstream. Fail loud.
     background = int((cortex_labels == 0).sum())
     if background:
         raise ValueError(
             f"{background} cortex grayordinates carry the background label "
-            "(value 0) in this Schaefer dlabel; expected all cortex "
-            "vertices to be parcellated. Confirm the dlabel is the "
-            "fsLR_32k surface release from CBIG, not a volumetric variant."
+            "(value 0) after indexing into the dlabel with HCP cortex "
+            "vertices. Either the HCP indices include medial-wall positions, "
+            "or the dlabel is not the fsLR_32k surface release from CBIG."
         )
 
     cortex_labels_0idx = cortex_labels - 1
@@ -103,19 +120,26 @@ def extract_cortex_labels_from_dlabel(
 
 def load_schaefer_cortex_assignment(
     dlabel_path: str | Path,
+    cortex_indices_lh: NDArray[np.integer[Any]],
+    cortex_indices_rh: NDArray[np.integer[Any]],
     n_rois: int = 400,
 ) -> NDArray[np.int64]:
     """Load a Schaefer fsLR_32k ``.dlabel.nii`` and return the cortex assignment.
 
-    Thin wrapper: load CIFTI2 image, read its brain-model axis, slice
-    out cortex labels, remap to 0-indexed parcels.  See
-    :func:`extract_cortex_labels_from_dlabel` for the unit-testable
-    extraction logic.
+    Thin wrapper: load CIFTI2 image, read its brain-model axis, index
+    into each hemisphere using HCP cortex vertices, remap to 0-indexed
+    parcels.  See :func:`extract_cortex_labels_from_dlabel` for the
+    unit-testable extraction logic.
 
     Parameters
     ----------
     dlabel_path : str or Path
         Path to ``Schaefer2018_400Parcels_*_fslr32k.dlabel.nii``.
+    cortex_indices_lh : ndarray of int
+        HCP LH grayordinate vertex indices, from
+        ``cortex_grayordinate_indices(hcp_header)``.
+    cortex_indices_rh : ndarray of int
+        Same for RH.
     n_rois : int, default 400
         Expected parcel count.
 
@@ -137,7 +161,13 @@ def load_schaefer_cortex_assignment(
         brain_models.append(
             {"name": name, "slice": slc, "vertex": vertex, "nvertex": nvertex}
         )
-    return extract_cortex_labels_from_dlabel(data, brain_models, n_rois=n_rois)
+    return extract_cortex_labels_from_dlabel(
+        data,
+        brain_models,
+        cortex_indices_lh=cortex_indices_lh,
+        cortex_indices_rh=cortex_indices_rh,
+        n_rois=n_rois,
+    )
 
 
 def build_schaefer_dataset_from_config(
@@ -174,8 +204,27 @@ def build_schaefer_dataset_from_config(
         offset = len(train_subjects)
 
     n_rois = int(cfg.baseline.n_rois)
+
+    # The CBIG Schaefer dlabel is on the full fsLR_32k mesh (with medial
+    # wall = label 0). To index it correctly we need the HCP grayordinate
+    # vertex indices, which we read from the reference training subject's
+    # CIFTI header.
+    from boldcast._upstream.cifti_io import (
+        cortex_grayordinate_indices,
+        load_dtseries,
+    )
+
+    ref_subject = train_subjects[0]
+    ref_run = cfg.data.runs[0]
+    ref_path = str(cfg.data.dtseries_pattern).format(subject=ref_subject, run=ref_run)
+    _, header = load_dtseries(ref_path)
+    cortex_lh, cortex_rh = cortex_grayordinate_indices(header)
+
     assignment = load_schaefer_cortex_assignment(
-        str(cfg.baseline.schaefer_dlabel), n_rois=n_rois
+        str(cfg.baseline.schaefer_dlabel),
+        cortex_indices_lh=cortex_lh,
+        cortex_indices_rh=cortex_rh,
+        n_rois=n_rois,
     )
 
     return HCPRestingDataset(

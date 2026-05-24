@@ -114,18 +114,25 @@ def main() -> int:  # noqa: C901
     n_rois = int(cfg.baseline.n_rois)
     schaefer_dlabel = str(cfg.baseline.schaefer_dlabel)
 
-    # Schaefer parcel assignment per cortex grayordinate (LH then RH, 0..399).
-    if is_rank_zero():
-        print(f"[day6] loading Schaefer dlabel from {schaefer_dlabel}")
-    assignment = load_schaefer_cortex_assignment(schaefer_dlabel, n_rois=n_rois)
-
-    # For kNN we need a reference subject's mesh — same as Day-5.
+    # Reference subject's CIFTI header gives us the HCP grayordinate vertex
+    # indices we need to (a) load the Schaefer dlabel correctly and (b) build
+    # the kNN over the same mesh.
     train_subjects_file = Path(str(cfg.data.subjects_train_file))
     ref_subject = train_subjects_file.read_text().strip().split("\n")[0].strip()
     ref_run = cfg.data.runs[0]
     ref_path = str(cfg.data.dtseries_pattern).format(subject=ref_subject, run=ref_run)
     _, header = load_dtseries(ref_path)
     cortex_lh, cortex_rh = cortex_grayordinate_indices(header)
+
+    # Schaefer parcel assignment per HCP cortex grayordinate (LH then RH, 0..399).
+    if is_rank_zero():
+        print(f"[day6] loading Schaefer dlabel from {schaefer_dlabel}")
+    assignment = load_schaefer_cortex_assignment(
+        schaefer_dlabel,
+        cortex_indices_lh=cortex_lh,
+        cortex_indices_rh=cortex_rh,
+        n_rois=n_rois,
+    )
 
     surface_dir = str(cfg.data.surface_dir_template).format(subject=ref_subject)
     lh_mesh = f"{surface_dir}/{ref_subject}.L.midthickness_MSMAll.32k_fs_LR.surf.gii"
