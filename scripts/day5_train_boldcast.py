@@ -24,13 +24,14 @@ load_repo_dotenv(_REPO_ROOT)
 
 import numpy as np  # noqa: E402
 import torch  # noqa: E402
+from boldcast.eval.baselines import compute_trivial_baselines  # noqa: E402
 from boldcast.training import (  # noqa: E402
     Trainer,
+    beats_best_baseline,
     build_optimizer,
     build_scheduler,
     cleanup_distributed,
     get_local_rank,
-    heldout_decreased_by,
     init_distributed,
     is_distributed_run,
     is_rank_zero,
@@ -309,27 +310,46 @@ def main() -> int:  # noqa: C901
             f"val measurements: {len(history['val_loss'])}"
         )
 
-    # Acceptance criterion #2: held-out val loss decreased ≥30%.
+    # Acceptance criterion #2: held-out val loss beats strongest trivial
+    # baseline by ≥15% (Cohen's large-effect R²; see
+    # docs/superpowers/specs/2026-05-24-acceptance-gate-baseline-relative-design.md).
     if is_rank_zero():
-        if not heldout_decreased_by(history, frac=0.30, window=3):
-            val_loss = history["val_loss"]
-            first_3 = val_loss[:3] if len(val_loss) >= 3 else val_loss
-            last_3 = val_loss[-3:] if len(val_loss) >= 3 else val_loss
+        if not history["val_loss"]:
             print(
-                f"[day5] heldout acceptance FAILED: "
-                f"first-3-mean={sum(first_3)/max(len(first_3),1):.6f}, "
-                f"last-3-mean={sum(last_3)/max(len(last_3),1):.6f} "
-                f"(need ≥30% drop)."
+                "[day5] baseline acceptance FAILED: "
+                "no val measurements recorded "
+                "(history['val_loss'] is empty — check val_every config)."
+            )
+            if is_distributed_run():
+                cleanup_distributed()
+            raise SystemExit(1)
+        model_val_loss = history["val_loss"][-1]
+        baselines = compute_trivial_baselines(
+            val_loader, horizons, device, model=None
+        )
+        best_name = min(baselines, key=lambda k: baselines[k])
+        best_val = baselines[best_name]
+        improvement_pct = (best_val - model_val_loss) / best_val * 100.0
+        gate_frac = 0.15
+        gate_pct = gate_frac * 100.0
+        if not beats_best_baseline(model_val_loss, baselines, frac=gate_frac):
+            print(
+                f"[day5] baseline acceptance FAILED: "
+                f"model={model_val_loss:.6f}, "
+                f"best baseline={best_val:.6f} ({best_name}), "
+                f"improvement={improvement_pct:+.2f}% over best baseline, "
+                f"gate={gate_pct:.1f}%."
             )
             # cleanup before exit
             if is_distributed_run():
                 cleanup_distributed()
             raise SystemExit(1)
-        val_loss = history["val_loss"]
         print(
-            f"[day5] heldout acceptance PASSED: "
-            f"first-3-mean={sum(val_loss[:3])/3:.6f}, "
-            f"last-3-mean={sum(val_loss[-3:])/3:.6f}."
+            f"[day5] baseline acceptance PASSED: "
+            f"model={model_val_loss:.6f}, "
+            f"best baseline={best_val:.6f} ({best_name}), "
+            f"improvement={improvement_pct:+.2f}% over best baseline, "
+            f"gate={gate_pct:.1f}%."
         )
 
     if is_distributed_run():

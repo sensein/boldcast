@@ -17,7 +17,12 @@ import numpy as np
 import torch
 from torch import nn
 
-__all__ = ["JsonlLogger", "heldout_decreased_by", "save_checkpoint", "seed_everything"]
+__all__ = [
+    "JsonlLogger",
+    "beats_best_baseline",
+    "save_checkpoint",
+    "seed_everything",
+]
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -47,47 +52,58 @@ def seed_everything(seed: int) -> None:
     )
 
 
-def heldout_decreased_by(
-    history: dict[str, list[float]],
-    frac: float = 0.30,
-    window: int = 3,
+def beats_best_baseline(
+    model_val_loss: float,
+    baselines: dict[str, float],
+    frac: float = 0.15,
 ) -> bool:
-    """Return True if held-out val loss dropped by at least ``frac``.
+    """Return True iff the model beats the strongest trivial baseline by ``frac``.
 
-    Compares the mean of the last ``window`` ``history['val_loss']``
-    values to the mean of the first ``window``. Returns True iff
-    ``mean(last) <= (1 - frac) * mean(first)``.
+    Specifically: returns ``model_val_loss <= (1 - frac) * min(baselines.values())``.
 
-    Used at end of Day-5 training to assert acceptance criterion #2
-    (≥30% drop) without binding to a single-step threshold (seed-
-    independent per schist ID 229).
+    The metric ``(best_baseline - model_val_loss) / best_baseline`` is the
+    fraction of the baseline's residual variance the model explains —
+    i.e., R² against the trivial baseline as the null model. Two
+    independent literatures anchor the default threshold ``frac=0.15``:
+
+    1. Cohen's effect-size conventions for variance explained:
+       small=0.01, medium=0.06, **large=0.14**. A 15% improvement sits
+       just above Cohen's "large effect" threshold.
+    2. Neuroimaging encoding/decoding norms: fMRI encoding models
+       typically report out-of-sample R² in the 0.05-0.20 range;
+       R² = 0.10 is considered a strong effect. 15% places the gate in
+       the upper-middle of this range.
+
+    See ``docs/superpowers/specs/2026-05-24-acceptance-gate-baseline-relative-design.md``
+    for the full rationale and migration history.
 
     Parameters
     ----------
-    history
-        Trainer.fit return dict; must have key ``'val_loss'``.
+    model_val_loss
+        The trained model's mean val MSE on the same loader the
+        baselines are computed against.
+    baselines
+        Mapping from baseline name to mean val MSE. The gate compares
+        against ``min(baselines.values())`` so the strongest baseline
+        sets the bar.
     frac
-        Required drop fraction (0.30 = 30%).
-    window
-        Number of measurements to average at each end.
+        Required improvement fraction over the strongest baseline.
+        Default 0.15 (15%, ≈ Cohen's large-effect R²).
 
     Returns
     -------
     bool
-        True if the drop criterion holds, False otherwise (including
-        if val_loss has fewer than ``2 * window`` entries).
+        True iff ``model_val_loss <= (1 - frac) * min(baselines.values())``.
 
     Raises
     ------
-    KeyError
-        If history does not have key ``'val_loss'``.
+    ValueError
+        If ``baselines`` is empty.
     """
-    losses = history["val_loss"]
-    if len(losses) < 2 * window:
-        return False
-    first_mean = sum(losses[:window]) / window
-    last_mean = sum(losses[-window:]) / window
-    return last_mean <= (1.0 - frac) * first_mean
+    if not baselines:
+        raise ValueError("baselines must be non-empty")
+    best = min(baselines.values())
+    return model_val_loss <= (1.0 - frac) * best
 
 
 def save_checkpoint(

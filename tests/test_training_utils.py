@@ -5,10 +5,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
 import torch
 from boldcast.training.utils import (
     JsonlLogger,
-    heldout_decreased_by,
+    beats_best_baseline,
     save_checkpoint,
     seed_everything,
 )
@@ -100,37 +101,44 @@ def test_save_checkpoint_creates_parent_dirs(tmp_path: Path) -> None:
     assert nested.exists()
 
 
-def test_heldout_decreased_by_strong_decrease() -> None:
-    """Strong decrease (1.0 → 0.5) passes 30% threshold."""
-    history = {"val_loss": [1.0, 1.0, 1.0, 0.5, 0.5, 0.5]}
-    assert heldout_decreased_by(history, frac=0.30, window=3) is True
+# ----------------------------------------------------------------------
+# beats_best_baseline (baseline-relative acceptance gate)
+# ----------------------------------------------------------------------
 
 
-def test_heldout_decreased_by_flat_fails() -> None:
-    """Flat trajectory fails."""
-    history = {"val_loss": [1.0] * 6}
-    assert heldout_decreased_by(history, frac=0.30, window=3) is False
+def test_beats_best_baseline_passes_when_model_strictly_better() -> None:
+    """0.50 <= 0.85 * min(1.0, 0.8) = 0.68 -> True."""
+    assert beats_best_baseline(0.50, {"a": 1.0, "b": 0.8}, frac=0.15) is True
 
 
-def test_heldout_decreased_by_noisy_decreasing_passes() -> None:
-    """Noisy decreasing 1.0→0.65 (35% drop) passes."""
-    history = {"val_loss": [1.0, 1.05, 0.95, 0.70, 0.60, 0.65]}
-    assert heldout_decreased_by(history, frac=0.30, window=3) is True
+def test_beats_best_baseline_passes_at_exact_threshold_edge() -> None:
+    """0.85 <= 0.85 * 1.0 = 0.85 -> True (boundary is inclusive)."""
+    assert beats_best_baseline(0.85, {"only": 1.0}, frac=0.15) is True
 
 
-def test_heldout_decreased_by_noisy_flat_fails() -> None:
-    """Noisy with spike but no real trend fails."""
-    history = {"val_loss": [1.0, 1.2, 0.8, 1.1, 0.9, 1.0]}
-    assert heldout_decreased_by(history, frac=0.30, window=3) is False
+def test_beats_best_baseline_fails_just_above_threshold() -> None:
+    """0.851 > 0.85 * 1.0 = 0.85 -> False."""
+    assert beats_best_baseline(0.851, {"only": 1.0}, frac=0.15) is False
 
 
-def test_heldout_decreased_by_insufficient_data() -> None:
-    """Fewer than 2*window measurements → False."""
-    history = {"val_loss": [1.0, 0.5, 0.3]}
-    assert heldout_decreased_by(history, frac=0.30, window=3) is False
+def test_beats_best_baseline_uses_min_not_max() -> None:
+    """min({1.0, 0.9}) = 0.9; threshold = 0.9 * 0.85 = 0.765; 0.80 > 0.765 -> False.
+
+    If the gate used max() instead of min(), threshold would be 0.85 and
+    the call would return True. The False result proves min() is in use.
+    """
+    assert beats_best_baseline(0.80, {"a": 1.0, "b": 0.9}, frac=0.15) is False
 
 
-def test_heldout_decreased_by_empty_history() -> None:
-    """Empty val_loss → False."""
-    history = {"val_loss": []}
-    assert heldout_decreased_by(history, frac=0.30, window=3) is False
+def test_beats_best_baseline_default_frac_is_0_15() -> None:
+    """Calling without frac uses default 0.15."""
+    # 0.85 <= 0.85 * 1.0 -> True with default; would be False if default were e.g. 0.20
+    assert beats_best_baseline(0.85, {"only": 1.0}) is True
+    assert beats_best_baseline(0.84, {"only": 1.0}) is True
+    assert beats_best_baseline(0.86, {"only": 1.0}) is False
+
+
+def test_beats_best_baseline_empty_baselines_raises() -> None:
+    """Empty baselines dict is a programmer error -> ValueError."""
+    with pytest.raises(ValueError, match="baselines must be non-empty"):
+        beats_best_baseline(0.50, {}, frac=0.15)

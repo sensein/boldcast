@@ -29,7 +29,6 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from collections.abc import Sequence
 from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -37,105 +36,7 @@ if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
 import torch  # noqa: E402
-from boldcast.training.loss import (  # noqa: E402
-    build_forecast_targets,
-    forecasting_loss,
-)
-
-
-def predict_zero_loss(
-    tokens: torch.Tensor,
-    horizons: Sequence[int],
-) -> torch.Tensor:
-    """MSE of an all-zeros prediction against forecast targets."""
-    targets = build_forecast_targets(tokens, horizons)
-    return forecasting_loss(torch.zeros_like(targets), targets)
-
-
-def predict_input_loss(
-    tokens: torch.Tensor,
-    horizons: Sequence[int],
-) -> torch.Tensor:
-    """MSE of ``pred[:, t, p, h, :] = tokens[:, t, p, :]`` against targets.
-
-    The temporal-persistence ("identity") baseline: at every prediction
-    position ``t`` and horizon ``h``, the predictor outputs the value of the
-    input at position ``t`` (no shift). Horizon-1 against this baseline is
-    the lag-1 autocorrelation residual; longer horizons accumulate drift.
-    """
-    targets = build_forecast_targets(tokens, horizons)
-    t_valid = targets.shape[1]
-    h = targets.shape[3]
-    # tokens[:, :T_valid] shape (B, T_valid, P, d_in) -> (B, T_valid, P, H, d_in)
-    pred = tokens[:, :t_valid].unsqueeze(3).expand(-1, -1, -1, h, -1)
-    return forecasting_loss(pred, targets)
-
-
-def predict_window_mean_loss(
-    tokens: torch.Tensor,
-    horizons: Sequence[int],
-) -> torch.Tensor:
-    """MSE of a per-window per-channel constant-mean predictor against targets.
-
-    The mean is taken over the first ``T_valid`` TRs of the input (the
-    prefix where output predictions are emitted), per patch and per channel.
-    Same constant value broadcast across all output positions and horizons.
-    """
-    targets = build_forecast_targets(tokens, horizons)
-    t_valid = targets.shape[1]
-    h = targets.shape[3]
-    # tokens[:, :T_valid] shape (B, T_valid, P, d_in) -> mean over time
-    window_mean = tokens[:, :t_valid].mean(dim=1, keepdim=True)
-    # (B, 1, P, d_in) -> (B, T_valid, P, H, d_in)
-    pred = window_mean.unsqueeze(3).expand(-1, t_valid, -1, h, -1)
-    return forecasting_loss(pred, targets)
-
-
-def _evaluate_baselines(
-    val_loader: torch.utils.data.DataLoader[dict[str, torch.Tensor]],
-    horizons: Sequence[int],
-    device: torch.device,
-    model: torch.nn.Module | None = None,
-) -> dict[str, float]:
-    """Iterate val_loader once, accumulate batch-mean losses for each predictor.
-
-    Returns
-    -------
-    dict with keys ``zero``, ``input``, ``window_mean``, ``model`` (the last
-    only present if ``model`` is not None) and the mean loss across batches
-    (equal-weight per batch — matches Trainer._eval which uses the same
-    ``total_loss / n_batches`` reduction).
-    """
-    totals: dict[str, float] = {"zero": 0.0, "input": 0.0, "window_mean": 0.0}
-    if model is not None:
-        totals["model"] = 0.0
-    n_batches = 0
-
-    if model is not None:
-        model.eval()
-
-    with torch.no_grad():
-        for batch in val_loader:
-            tokens = batch["tokens"].to(device).unsqueeze(-1)
-            totals["zero"] += float(predict_zero_loss(tokens, horizons).item())
-            totals["input"] += float(predict_input_loss(tokens, horizons).item())
-            totals["window_mean"] += float(
-                predict_window_mean_loss(tokens, horizons).item()
-            )
-            if model is not None:
-                targets = build_forecast_targets(tokens, horizons)
-                with torch.autocast(
-                    device_type=device.type,
-                    dtype=torch.bfloat16,
-                    enabled=device.type == "cuda",
-                ):
-                    pred_full = model(tokens)
-                    pred = pred_full[:, : targets.shape[1]]
-                    loss = forecasting_loss(pred, targets)
-                totals["model"] += float(loss.item())
-            n_batches += 1
-
-    return {k: v / max(n_batches, 1) for k, v in totals.items()}
+from boldcast.eval.baselines import compute_trivial_baselines  # noqa: E402
 
 
 def main() -> int:  # noqa: C901
@@ -273,7 +174,7 @@ def main() -> int:  # noqa: C901
         f"horizons={horizons}, val batches will be counted below."
     )
 
-    results = _evaluate_baselines(val_loader, horizons, device, model=model)
+    results = compute_trivial_baselines(val_loader, horizons, device, model=model)
 
     print("[baseline_eval] results (lower = better):")
     for key in ("zero", "input", "window_mean", "model"):

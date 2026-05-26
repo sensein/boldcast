@@ -20,7 +20,7 @@ from boldcast.training.optim import build_optimizer, build_scheduler
 from boldcast.training.trainer import Trainer
 from boldcast.training.utils import (
     JsonlLogger,
-    heldout_decreased_by,
+    beats_best_baseline,
     save_checkpoint,
     seed_everything,
 )
@@ -28,6 +28,7 @@ from boldcast.training.utils import (
 __all__ = [
     "JsonlLogger",
     "Trainer",
+    "beats_best_baseline",
     "build_forecast_targets",
     "build_optimizer",
     "build_scheduler",
@@ -36,7 +37,6 @@ __all__ = [
     "get_local_rank",
     "get_rank",
     "get_world_size",
-    "heldout_decreased_by",
     "init_distributed",
     "is_distributed_run",
     "is_rank_zero",
