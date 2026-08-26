@@ -44,6 +44,7 @@ nav:
 exclude_docs: |
   superpowers/
   proposal.md
+  k99_prelim_outline.md
 
 markdown_extensions:
   - admonition

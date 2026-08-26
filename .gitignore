@@ -24,6 +24,7 @@ configs/local.yaml
 # docs/10_day_plan.md, docs/adr/, etc. — see Yibei before adding new tracked
 # docs.
 docs/proposal.md
+docs/k99_prelim_outline.md
 
 # SLURM logs
 logs/
