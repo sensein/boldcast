@@ -26,6 +26,14 @@ configs/local.yaml
 docs/proposal.md
 docs/k99_prelim_outline.md
 
+# HCP subject lists (DUA-conscious: real subject IDs stay out of git;
+# regenerate via scripts/build_subject_lists.py + build_family_disjoint_splits.py
+# or copy manually between clusters).
+configs/subjects_*.txt
+
+# Rendered talk PDF (contains pre-scrub content; re-export from seed_pitch.md)
+talks/2026-05-14-seed-pitch/seed_pitch.pdf
+
 # SLURM logs
 logs/
 

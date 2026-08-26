@@ -45,6 +45,8 @@ exclude_docs: |
   superpowers/
   proposal.md
   k99_prelim_outline.md
+  adr/0007-subcortex-tokens-gated-on-ablation.md
+  adr/0008-phenotype-claims-gated-on-film-ablation.md
 
 markdown_extensions:
   - admonition
