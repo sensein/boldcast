@@ -1,0 +1,10 @@
+# Ablation: cortex-only tokenization (P=1024), subcortex/cerebellum stream removed.
+#
+# Tests the contribution of the 768 subcortical/cerebellar k-means tokens
+# against the full P=1792 model. See docs/adr/0007-subcortex-tokens-gated-on-ablation.md.
+# Motivated by CortexMAE Table 5 (subcortex null on cortex-dominated tasks);
+# evaluate the delta on subcortically/cerebellar-relevant tasks specifically.
+#
+# TODO: populate against the full-project base config (configs/base.yaml) once
+# the subcortex tokenizer + P=1792 path are wired. Until then this is a
+# registered-but-empty experiment stub (matches sibling ablation stubs).
