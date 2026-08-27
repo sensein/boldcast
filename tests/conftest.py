@@ -5,6 +5,7 @@ Synthetic-only by design: Claude does not load HCP data files (DUA).
 
 from __future__ import annotations
 
+import os
 from collections.abc import Callable
 from pathlib import Path
 
@@ -133,3 +134,21 @@ def synthetic_hcp_layout(tmp_path: Path) -> tuple[Path, list[str], list[str]]:
             )
 
     return hcp_root, subjects, runs
+
+
+@pytest.fixture
+def script_env(tmp_path: Path) -> dict[str, str]:
+    """Environment for smoke tests that run a script in a subprocess.
+
+    ``configs/demo.yaml`` interpolates ``${oc.env:HCP_ROOT}`` with no default
+    (unlike ``SCRATCH_DIR`` and ``DATA``, which fall back to ``/tmp``), so the
+    config cannot resolve unless HCP_ROOT is set. On a dev machine the repo
+    ``.env`` supplies it, which made these tests pass locally while failing on
+    any machine without one — CI caught exactly that.
+
+    The scripts under test never read HCP data in ``--dry-run`` / no-CUDA
+    mode, so an empty tmp_path is enough to let interpolation succeed. Keeping
+    it a placeholder also means the test cannot accidentally touch real
+    DUA-bound data.
+    """
+    return {**os.environ, "HCP_ROOT": str(tmp_path / "hcp_root_placeholder")}

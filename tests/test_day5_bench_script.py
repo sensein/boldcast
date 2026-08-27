@@ -24,7 +24,7 @@ def test_bench_help_works() -> None:
         assert flag in result.stdout, f"Missing flag {flag} in --help"
 
 
-def test_bench_no_cuda_exits_cleanly() -> None:
+def test_bench_no_cuda_exits_cleanly(script_env: dict[str, str]) -> None:
     """Without CUDA, script must exit with a clear SystemExit message (not a stacktrace)."""
     result = subprocess.run(
         [
@@ -38,6 +38,7 @@ def test_bench_no_cuda_exits_cleanly() -> None:
             "2",
         ],
         cwd=str(REPO_ROOT),
+        env=script_env,
         capture_output=True,
         text=True,
         timeout=30,

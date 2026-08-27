@@ -14,7 +14,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 SCRIPT = REPO_ROOT / "scripts" / "day5_train_boldcast.py"
 
 
-def test_day5_script_dry_run_completes(tmp_path: Path) -> None:
+def test_day5_script_dry_run_completes(tmp_path: Path, script_env: dict[str, str]) -> None:
     """--dry-run should construct argparse + verify imports without loading data."""
     result = subprocess.run(
         [
@@ -29,6 +29,7 @@ def test_day5_script_dry_run_completes(tmp_path: Path) -> None:
             "--dry-run",
         ],
         cwd=str(REPO_ROOT),
+        env=script_env,
         capture_output=True,
         text=True,
         timeout=60,
