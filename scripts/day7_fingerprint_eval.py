@@ -125,7 +125,11 @@ def _compute_metrics(
         cis: dict[int, dict[str, float]] = {}
         for k in k_list:
             point, lo, hi = bootstrap_ci_topk(
-                emb, sids, k=k, n_resamples=n_resamples, seed=seed,
+                emb,
+                sids,
+                k=k,
+                n_resamples=n_resamples,
+                seed=seed,
             )
             cis[int(k)] = {"point": point, "ci_low": lo, "ci_high": hi}
         out[pool] = {
@@ -157,20 +161,34 @@ def _plot_topk_bars(
         bc_pts = [bc["topk"][k] for k in k_list]
         bl_pts = [bl["topk"][k] for k in k_list]
         bc_err = np.array(
-            [[bc["topk"][k] - bc["ci"][k]["ci_low"] for k in k_list],
-             [bc["ci"][k]["ci_high"] - bc["topk"][k] for k in k_list]]
+            [
+                [bc["topk"][k] - bc["ci"][k]["ci_low"] for k in k_list],
+                [bc["ci"][k]["ci_high"] - bc["topk"][k] for k in k_list],
+            ]
         )
         bl_err = np.array(
-            [[bl["topk"][k] - bl["ci"][k]["ci_low"] for k in k_list],
-             [bl["ci"][k]["ci_high"] - bl["topk"][k] for k in k_list]]
+            [
+                [bl["topk"][k] - bl["ci"][k]["ci_low"] for k in k_list],
+                [bl["ci"][k]["ci_high"] - bl["topk"][k] for k in k_list],
+            ]
         )
         ax.bar(
-            x - width / 2, bc_pts, width, yerr=bc_err, capsize=4,
-            label="BOLDcast", color="#3b82f6",
+            x - width / 2,
+            bc_pts,
+            width,
+            yerr=bc_err,
+            capsize=4,
+            label="BOLDcast",
+            color="#3b82f6",
         )
         ax.bar(
-            x + width / 2, bl_pts, width, yerr=bl_err, capsize=4,
-            label="Schaefer-400", color="#94a3b8",
+            x + width / 2,
+            bl_pts,
+            width,
+            yerr=bl_err,
+            capsize=4,
+            label="Schaefer-400",
+            color="#94a3b8",
         )
         ax.axhline(1.0 / 8.0, linestyle=":", color="grey", linewidth=1, label="chance (1/8)")
         ax.set_xticks(x)
@@ -266,10 +284,7 @@ def main() -> int:  # noqa: C901
     window_seconds = [int(w) for w in cfg.eval.windows_seconds]
 
     if args.dry_run:
-        print(
-            f"[day7] dry-run: k_list={k_list}, pools={pools}, "
-            f"window_seconds={window_seconds}"
-        )
+        print(f"[day7] dry-run: k_list={k_list}, pools={pools}, window_seconds={window_seconds}")
         return 0
 
     if not torch.cuda.is_available():
@@ -300,7 +315,8 @@ def main() -> int:  # noqa: C901
     val_ds_bc = HCPRestingDataset.from_config(args.config, split="heldout")
     # Need adjacency for model construction: rebuild from same cache.
     train_subjects = [
-        s for s in Path(str(cfg.data.subjects_train_file)).read_text().splitlines()
+        s
+        for s in Path(str(cfg.data.subjects_train_file)).read_text().splitlines()
         if s.strip() and not s.startswith("#")
     ]
     ref_subject = train_subjects[0].strip()
@@ -313,23 +329,33 @@ def main() -> int:  # noqa: C901
     rh_mesh = f"{surface_dir}/{ref_subject}.R.midthickness_MSMAll.32k_fs_LR.surf.gii"
 
     assignment_geo = build_or_load_patches(
-        mesh_lh_path=lh_mesh, mesh_rh_path=rh_mesh,
-        cortex_indices_lh=cortex_lh, cortex_indices_rh=cortex_rh,
+        mesh_lh_path=lh_mesh,
+        mesh_rh_path=rh_mesh,
+        cortex_indices_lh=cortex_lh,
+        cortex_indices_rh=cortex_rh,
         cache_path=str(cfg.tokenize.patch_cache),
         n_patches=int(cfg.tokenize.n_patches_cortex),
     )
     adj_geo = build_or_load_knn(
-        mesh_lh_path=lh_mesh, mesh_rh_path=rh_mesh,
-        cortex_indices_lh=cortex_lh, cortex_indices_rh=cortex_rh,
-        patch_assignment=assignment_geo, n_patches=int(cfg.tokenize.n_patches_cortex),
-        k=int(cfg.tokenize.knn_k), cache_path=str(cfg.tokenize.knn_cache),
+        mesh_lh_path=lh_mesh,
+        mesh_rh_path=rh_mesh,
+        cortex_indices_lh=cortex_lh,
+        cortex_indices_rh=cortex_rh,
+        patch_assignment=assignment_geo,
+        n_patches=int(cfg.tokenize.n_patches_cortex),
+        k=int(cfg.tokenize.knn_k),
+        cache_path=str(cfg.tokenize.knn_cache),
     )
     adj_geo_t = torch.from_numpy(np.asarray(adj_geo)).long().to(device)
     bc_model: torch.nn.Module = BOLDcastDemo(
-        d_in=1, d_model=128, n_layers=4,
+        d_in=1,
+        d_model=128,
+        n_layers=4,
         n_patches=int(cfg.tokenize.n_patches_cortex),
         k_neighbors=int(cfg.tokenize.knn_k),
-        adjacency=adj_geo_t, horizons=horizons, use_checkpoint=False,
+        adjacency=adj_geo_t,
+        horizons=horizons,
+        use_checkpoint=False,
     )
     bc_model = _load_model_from_ckpt(args.boldcast_ckpt, bc_model, device)
     print(f"[day7] loaded BOLDcast ckpt: {args.boldcast_ckpt}")
@@ -337,19 +363,28 @@ def main() -> int:  # noqa: C901
     # --- Schaefer baseline model + dataset -----------------------------
     n_rois = int(cfg.baseline.n_rois)
     assignment_sch = load_schaefer_cortex_assignment(
-        str(cfg.baseline.schaefer_dlabel), n_rois=n_rois,
+        str(cfg.baseline.schaefer_dlabel),
+        n_rois=n_rois,
     )
     adj_sch = build_or_load_knn(
-        mesh_lh_path=lh_mesh, mesh_rh_path=rh_mesh,
-        cortex_indices_lh=cortex_lh, cortex_indices_rh=cortex_rh,
-        patch_assignment=assignment_sch, n_patches=n_rois,
-        k=int(cfg.tokenize.knn_k), cache_path=str(cfg.baseline.knn_cache),
+        mesh_lh_path=lh_mesh,
+        mesh_rh_path=rh_mesh,
+        cortex_indices_lh=cortex_lh,
+        cortex_indices_rh=cortex_rh,
+        patch_assignment=assignment_sch,
+        n_patches=n_rois,
+        k=int(cfg.tokenize.knn_k),
+        cache_path=str(cfg.baseline.knn_cache),
     )
     adj_sch_t = torch.from_numpy(np.asarray(adj_sch)).long().to(device)
     sch_model: torch.nn.Module = BaselineSchaefer400(
-        d_in=1, d_model=128, n_layers=4,
+        d_in=1,
+        d_model=128,
+        n_layers=4,
         k_neighbors=int(cfg.tokenize.knn_k),
-        adjacency=adj_sch_t, horizons=horizons, use_checkpoint=False,
+        adjacency=adj_sch_t,
+        horizons=horizons,
+        use_checkpoint=False,
     )
     sch_model = _load_model_from_ckpt(args.baseline_ckpt, sch_model, device)
     print(f"[day7] loaded Schaefer ckpt: {args.baseline_ckpt}")
@@ -358,25 +393,37 @@ def main() -> int:  # noqa: C901
     # --- Main metrics --------------------------------------------------
     print(f"[day7] computing BOLDcast metrics across pools={pools}, k_list={k_list} ...")
     bc_metrics = _compute_metrics(
-        bc_model, val_ds_bc, device,
-        pools=pools, k_list=k_list,
-        n_resamples=args.n_resamples, seed=args.seed,
+        bc_model,
+        val_ds_bc,
+        device,
+        pools=pools,
+        k_list=k_list,
+        n_resamples=args.n_resamples,
+        seed=args.seed,
     )
     print("[day7] computing Schaefer metrics ...")
     sch_metrics = _compute_metrics(
-        sch_model, val_ds_sch, device,
-        pools=pools, k_list=k_list,
-        n_resamples=args.n_resamples, seed=args.seed,
+        sch_model,
+        val_ds_sch,
+        device,
+        pools=pools,
+        k_list=k_list,
+        n_resamples=args.n_resamples,
+        seed=args.seed,
     )
 
     # --- Paired McNemar on per-run top-1 correctness -------------------
     mcnemar: dict[str, float] = {}
     for pool in pools:
         bc_correct = per_run_correct(
-            bc_metrics[pool]["embeddings"], bc_metrics[pool]["subject_ids"], k=1,
+            bc_metrics[pool]["embeddings"],
+            bc_metrics[pool]["subject_ids"],
+            k=1,
         )
         sch_correct = per_run_correct(
-            sch_metrics[pool]["embeddings"], sch_metrics[pool]["subject_ids"], k=1,
+            sch_metrics[pool]["embeddings"],
+            sch_metrics[pool]["subject_ids"],
+            k=1,
         )
         # NB: the two methods see the SAME held-out runs but in the order
         # produced by each model's dataset.  Sort both by (subject_id,
@@ -420,14 +467,20 @@ def main() -> int:  # noqa: C901
 
     # --- Figures -------------------------------------------------------
     _plot_topk_bars(
-        bc_metrics, sch_metrics, k_list, pools,
+        bc_metrics,
+        sch_metrics,
+        k_list,
+        pools,
         args.out_dir / "day7_fingerprint_topk.png",
     )
     cm, labels = _confusion_matrix(
-        bc_metrics["mean_tp"]["embeddings"], bc_metrics["mean_tp"]["subject_ids"],
+        bc_metrics["mean_tp"]["embeddings"],
+        bc_metrics["mean_tp"]["subject_ids"],
     )
     _plot_confusion(
-        cm, labels, args.out_dir / "day7_fingerprint_confusion.png",
+        cm,
+        labels,
+        args.out_dir / "day7_fingerprint_confusion.png",
         title="BOLDcast top-1 confusion (held-out, mean_tp pool)",
     )
     _plot_window_sweep(sweep, window_seconds, args.out_dir / "day7_fingerprint_window_sweep.png")

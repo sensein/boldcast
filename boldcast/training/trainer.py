@@ -226,8 +226,7 @@ class Trainer:
                 if step % self.log_every == 0 or step == max_steps - 1:
                     if self._is_rank_zero:
                         print(
-                            f"[trainer] step={step:>5d}  "
-                            f"loss={loss_value:.6f}  lr={lr_value:.2e}"
+                            f"[trainer] step={step:>5d}  loss={loss_value:.6f}  lr={lr_value:.2e}"
                         )
                 if (
                     self._is_rank_zero
@@ -249,14 +248,9 @@ class Trainer:
                         history["val_step"].append(float(step))
                         history["val_loss"].append(val_loss)
                         if self._is_rank_zero:
-                            print(
-                                f"[trainer] val_step={step:>5d}  "
-                                f"val_loss={val_loss:.6f}"
-                            )
+                            print(f"[trainer] val_step={step:>5d}  val_loss={val_loss:.6f}")
                             if self._logger is not None:
-                                self._logger.write(
-                                    {"step": step, "val_loss": val_loss}
-                                )
+                                self._logger.write({"step": step, "val_loss": val_loss})
         finally:
             if self._logger is not None:
                 self._logger.close()
@@ -305,10 +299,7 @@ class Trainer:
                             with autocast(
                                 device_type="cuda",
                                 dtype=torch.bfloat16,
-                                enabled=(
-                                    self.precision == "bf16"
-                                    and self.device.type == "cuda"
-                                ),
+                                enabled=(self.precision == "bf16" and self.device.type == "cuda"),
                             ):
                                 pred_full: torch.Tensor = eval_module(tokens)
                                 pred = pred_full[:, : targets.shape[1]]
@@ -316,9 +307,7 @@ class Trainer:
                             total_loss += float(loss.item())
                             n_batches += 1
                     mean_loss = total_loss / max(n_batches, 1)
-                    result = torch.tensor(
-                        mean_loss, dtype=torch.float64, device=self.device
-                    )
+                    result = torch.tensor(mean_loss, dtype=torch.float64, device=self.device)
                 else:
                     result = torch.zeros((), dtype=torch.float64, device=self.device)
                 # NCCL has no CPU backend — the broadcast tensor must live on
@@ -336,10 +325,7 @@ class Trainer:
                         with autocast(
                             device_type="cuda",
                             dtype=torch.bfloat16,
-                            enabled=(
-                                self.precision == "bf16"
-                                and self.device.type == "cuda"
-                            ),
+                            enabled=(self.precision == "bf16" and self.device.type == "cuda"),
                         ):
                             pred_full = self.model(tokens)
                             pred = pred_full[:, : targets.shape[1]]
@@ -382,9 +368,7 @@ class Trainer:
             loss = forecasting_loss(pred, targets)
 
         if not torch.isfinite(loss):
-            raise RuntimeError(
-                f"non-finite loss at step {step}: {loss.item()}"
-            )
+            raise RuntimeError(f"non-finite loss at step {step}: {loss.item()}")
 
         loss.backward()  # type: ignore[no-untyped-call,unused-ignore]
         if self.grad_clip_norm is not None:
@@ -393,9 +377,7 @@ class Trainer:
             )
         else:
             # Compute the total norm without clipping (for logging only).
-            grad_norm_t = torch.nn.utils.clip_grad_norm_(
-                self.model.parameters(), float("inf")
-            )
+            grad_norm_t = torch.nn.utils.clip_grad_norm_(self.model.parameters(), float("inf"))
         grad_norm = float(grad_norm_t)
         self.optimizer.step()
         if self.scheduler is not None:
@@ -407,10 +389,12 @@ class Trainer:
         reduced = _all_reduce_mean(loss.detach().clone())
         loss_value = float(reduced.item())
         if self._logger is not None:
-            self._logger.write({
-                "step": step,
-                "loss": loss_value,
-                "lr": lr,
-                "grad_norm": grad_norm,
-            })
+            self._logger.write(
+                {
+                    "step": step,
+                    "loss": loss_value,
+                    "lr": lr,
+                    "grad_norm": grad_norm,
+                }
+            )
         return loss_value, lr

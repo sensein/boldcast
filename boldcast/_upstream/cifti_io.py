@@ -58,15 +58,11 @@ def load_dtseries(path: str) -> tuple[NDArray[np.float32], dict[str, Any]]:
     for name, slc, struct in brain_axis.iter_structures():
         if struct.nvertices:
             nvertex = int(next(iter(struct.nvertices.values())))
-            vertex: NDArray[np.int64] | None = np.asarray(
-                struct.vertex, dtype=np.int64
-            )
+            vertex: NDArray[np.int64] | None = np.asarray(struct.vertex, dtype=np.int64)
         else:
             nvertex = 0
             vertex = None
-        brain_models.append(
-            {"name": name, "slice": slc, "vertex": vertex, "nvertex": nvertex}
-        )
+        brain_models.append({"name": name, "slice": slc, "vertex": vertex, "nvertex": nvertex})
 
     header: dict[str, Any] = {
         "n_grayordinates": int(brain_axis.size),
@@ -125,16 +121,8 @@ def cortex_grayordinate_indices(
     rh_vertex : ndarray of int
         Same for RH.
     """
-    lh = next(
-        bm
-        for bm in header["brain_models"]
-        if bm["name"] == "CIFTI_STRUCTURE_CORTEX_LEFT"
-    )
-    rh = next(
-        bm
-        for bm in header["brain_models"]
-        if bm["name"] == "CIFTI_STRUCTURE_CORTEX_RIGHT"
-    )
+    lh = next(bm for bm in header["brain_models"] if bm["name"] == "CIFTI_STRUCTURE_CORTEX_LEFT")
+    rh = next(bm for bm in header["brain_models"] if bm["name"] == "CIFTI_STRUCTURE_CORTEX_RIGHT")
     return lh["vertex"], rh["vertex"]
 
 
@@ -156,19 +144,9 @@ def extract_cortex_grayordinates(
         Concatenation of the LH and RH cortex grayordinate columns. For
         the standard HCP grayordinate space, ``V_cortex = 59412``.
     """
-    lh = next(
-        bm
-        for bm in header["brain_models"]
-        if bm["name"] == "CIFTI_STRUCTURE_CORTEX_LEFT"
-    )
-    rh = next(
-        bm
-        for bm in header["brain_models"]
-        if bm["name"] == "CIFTI_STRUCTURE_CORTEX_RIGHT"
-    )
-    return np.concatenate(
-        [data[:, lh["slice"]], data[:, rh["slice"]]], axis=1
-    ).astype(np.float32)
+    lh = next(bm for bm in header["brain_models"] if bm["name"] == "CIFTI_STRUCTURE_CORTEX_LEFT")
+    rh = next(bm for bm in header["brain_models"] if bm["name"] == "CIFTI_STRUCTURE_CORTEX_RIGHT")
+    return np.concatenate([data[:, lh["slice"]], data[:, rh["slice"]]], axis=1).astype(np.float32)
 
 
 def load_gifti_surface(path: str) -> tuple[NDArray[np.float32], NDArray[np.int32]]:

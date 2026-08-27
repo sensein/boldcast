@@ -60,9 +60,7 @@ def build_forecast_targets(
     if max_h >= t_full:
         raise ValueError(f"max(horizons)={max_h} must be < T={t_full}")
     t_valid = t_full - max_h
-    return torch.stack(
-        [tokens[:, h:h + t_valid] for h in horizons], dim=3
-    )
+    return torch.stack([tokens[:, h : h + t_valid] for h in horizons], dim=3)
 
 
 def forecasting_loss(

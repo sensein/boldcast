@@ -62,10 +62,7 @@ def main() -> int:
                 f"NaN/Inf in built window: {key}, start={sample['window_start']}"
             )
         dt = time.perf_counter() - t0
-        print(
-            f"[day2] {split}: built {n_built} (subject, run) cache files "
-            f"in {dt:.1f} s"
-        )
+        print(f"[day2] {split}: built {n_built} (subject, run) cache files in {dt:.1f} s")
 
     print("[day2] done.")
     return 0

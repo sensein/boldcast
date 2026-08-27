@@ -83,9 +83,7 @@ def extract_cortex_labels_from_dlabel(
     """
     flat = np.asarray(label_data).squeeze().astype(np.int64)
     if flat.ndim != 1:
-        raise ValueError(
-            f"label_data must squeeze to 1D; got shape {flat.shape}"
-        )
+        raise ValueError(f"label_data must squeeze to 1D; got shape {flat.shape}")
 
     lh = next(bm for bm in brain_models if bm["name"] == "CIFTI_STRUCTURE_CORTEX_LEFT")
     rh = next(bm for bm in brain_models if bm["name"] == "CIFTI_STRUCTURE_CORTEX_RIGHT")
@@ -112,9 +110,7 @@ def extract_cortex_labels_from_dlabel(
     cortex_labels_0idx = cortex_labels - 1
     lo, hi = int(cortex_labels_0idx.min()), int(cortex_labels_0idx.max())
     if lo < 0 or hi >= n_rois:
-        raise ValueError(
-            f"cortex labels out of range [0, {n_rois}): got [{lo}, {hi}]"
-        )
+        raise ValueError(f"cortex labels out of range [0, {n_rois}): got [{lo}, {hi}]")
     return cortex_labels_0idx
 
 
@@ -158,9 +154,7 @@ def load_schaefer_cortex_assignment(
         else:
             nvertex = 0
             vertex = None
-        brain_models.append(
-            {"name": name, "slice": slc, "vertex": vertex, "nvertex": nvertex}
-        )
+        brain_models.append({"name": name, "slice": slc, "vertex": vertex, "nvertex": nvertex})
     return extract_cortex_labels_from_dlabel(
         data,
         brain_models,

@@ -90,13 +90,11 @@ class HCPRestingDataset(Dataset[dict[str, Any]]):
         super().__init__()
         if standardize_method != "run_wise":
             raise ValueError(
-                f"unknown standardize_method {standardize_method!r}; "
-                "only 'run_wise' supported"
+                f"unknown standardize_method {standardize_method!r}; only 'run_wise' supported"
             )
         if int(patch_assignment.max()) >= n_patches:
             raise ValueError(
-                f"patch_assignment max {int(patch_assignment.max())} "
-                f">= n_patches {n_patches}"
+                f"patch_assignment max {int(patch_assignment.max())} >= n_patches {n_patches}"
             )
 
         self.subjects = list(subjects)
@@ -132,9 +130,7 @@ class HCPRestingDataset(Dataset[dict[str, Any]]):
                 series_axis = img.header.get_axis(0)  # type: ignore[attr-defined,unused-ignore]
                 t_full = int(series_axis.size)
                 if t_full < self.window_size:
-                    raise ValueError(
-                        f"{path}: T={t_full} < window_size={self.window_size}"
-                    )
+                    raise ValueError(f"{path}: T={t_full} < window_size={self.window_size}")
                 for start in range(0, t_full - self.window_size + 1, self.stride):
                     windows.append((s_idx, r_idx, start))
         return windows
@@ -215,9 +211,7 @@ class HCPRestingDataset(Dataset[dict[str, Any]]):
         return tokens_arr
 
     @classmethod
-    def from_config(
-        cls, config_path: str, split: str
-    ) -> HCPRestingDataset:
+    def from_config(cls, config_path: str, split: str) -> HCPRestingDataset:
         """Build an ``HCPRestingDataset`` from a Hydra/OmegaConf YAML config.
 
         Parameters
@@ -246,9 +240,7 @@ class HCPRestingDataset(Dataset[dict[str, Any]]):
         from boldcast.tokenize.geodesic import build_or_load_patches
 
         if split not in ("train", "heldout"):
-            raise ValueError(
-                f"split must be 'train' or 'heldout', got {split!r}"
-            )
+            raise ValueError(f"split must be 'train' or 'heldout', got {split!r}")
 
         cfg = OmegaConf.load(config_path)
         OmegaConf.resolve(cfg)
@@ -278,22 +270,12 @@ class HCPRestingDataset(Dataset[dict[str, Any]]):
             # dtseries header to get cortex indices, then build the assignment.
             ref_subject = (train_subjects or heldout_subjects)[0]
             ref_run = cfg.data.runs[0]
-            ref_path = str(cfg.data.dtseries_pattern).format(
-                subject=ref_subject, run=ref_run
-            )
+            ref_path = str(cfg.data.dtseries_pattern).format(subject=ref_subject, run=ref_run)
             _, header = load_dtseries(ref_path)
             cortex_lh, cortex_rh = cortex_grayordinate_indices(header)
-            surface_dir = str(cfg.data.surface_dir_template).format(
-                subject=ref_subject
-            )
-            lh_mesh = (
-                f"{surface_dir}/{ref_subject}"
-                ".L.midthickness_MSMAll.32k_fs_LR.surf.gii"
-            )
-            rh_mesh = (
-                f"{surface_dir}/{ref_subject}"
-                ".R.midthickness_MSMAll.32k_fs_LR.surf.gii"
-            )
+            surface_dir = str(cfg.data.surface_dir_template).format(subject=ref_subject)
+            lh_mesh = f"{surface_dir}/{ref_subject}.L.midthickness_MSMAll.32k_fs_LR.surf.gii"
+            rh_mesh = f"{surface_dir}/{ref_subject}.R.midthickness_MSMAll.32k_fs_LR.surf.gii"
             patch_assignment = build_or_load_patches(
                 mesh_lh_path=lh_mesh,
                 mesh_rh_path=rh_mesh,

@@ -118,19 +118,13 @@ def main() -> int:  # noqa: C901
     if is_rank_zero():
         print(f"[bench] reference subject={ref_subject}, run={ref_run}")
 
-    ref_path = str(cfg.data.dtseries_pattern).format(
-        subject=ref_subject, run=ref_run
-    )
+    ref_path = str(cfg.data.dtseries_pattern).format(subject=ref_subject, run=ref_run)
     _, header = load_dtseries(ref_path)
     cortex_lh, cortex_rh = cortex_grayordinate_indices(header)
 
     surface_dir = str(cfg.data.surface_dir_template).format(subject=ref_subject)
-    lh_mesh = (
-        f"{surface_dir}/{ref_subject}.L.midthickness_MSMAll.32k_fs_LR.surf.gii"
-    )
-    rh_mesh = (
-        f"{surface_dir}/{ref_subject}.R.midthickness_MSMAll.32k_fs_LR.surf.gii"
-    )
+    lh_mesh = f"{surface_dir}/{ref_subject}.L.midthickness_MSMAll.32k_fs_LR.surf.gii"
+    rh_mesh = f"{surface_dir}/{ref_subject}.R.midthickness_MSMAll.32k_fs_LR.surf.gii"
 
     if is_rank_zero():
         print(f"[bench] loading patch assignment from {cfg.tokenize.patch_cache}")
@@ -181,9 +175,7 @@ def main() -> int:  # noqa: C901
         horizons=horizons,
         use_checkpoint=True,
     ).to(device)
-    model: torch.nn.Module = setup_model_for_ddp(
-        _demo_model, find_unused_parameters=False
-    )
+    model: torch.nn.Module = setup_model_for_ddp(_demo_model, find_unused_parameters=False)
 
     # Loss target: random, same shape as model output (B, T_valid, P, H, d_in).
     H = len(horizons)

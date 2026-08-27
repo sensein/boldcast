@@ -124,8 +124,9 @@ def test_geodesic_and_euclidean_disagree_on_nonconvex_mesh() -> None:
     """On a torus (genus-1), geodesic and Euclidean assignments must differ on >0 vertices."""
     import trimesh
 
-    m = trimesh.creation.torus(major_radius=1.0, minor_radius=0.3,
-                                major_sections=16, minor_sections=8)
+    m = trimesh.creation.torus(
+        major_radius=1.0, minor_radius=0.3, major_sections=16, minor_sections=8
+    )
     verts = m.vertices.astype(np.float32)
     faces = m.faces.astype(np.int32)
     cortex_indices = np.arange(verts.shape[0])

@@ -53,9 +53,7 @@ def test_cortex_slice_empty_index_returns_zero_width() -> None:
 
 
 def test_patch_tokens_means() -> None:
-    cortex = np.array(
-        [[1.0, 3.0, 10.0, 20.0], [2.0, 4.0, 30.0, 50.0]], dtype=np.float32
-    )
+    cortex = np.array([[1.0, 3.0, 10.0, 20.0], [2.0, 4.0, 30.0, 50.0]], dtype=np.float32)
     assignment = np.array([0, 0, 1, 1])
     out = patch_tokens(cortex, assignment, n_patches=2)
     assert tuple(out.shape) == (2, 2)
@@ -98,14 +96,10 @@ def test_pool_embeddings_rejects_wrong_rank() -> None:
 
 
 def test_transform_end_to_end_small() -> None:
-    bold = np.array(
-        [[0.0, 1.0, 2.0, 3.0, 99.0], [4.0, 5.0, 6.0, 7.0, 88.0]], dtype=np.float32
-    )
+    bold = np.array([[0.0, 1.0, 2.0, 3.0, 99.0], [4.0, 5.0, 6.0, 7.0, 88.0]], dtype=np.float32)
     cortex_index = np.array([0, 1, 2, 3])
     assignment = np.array([0, 0, 1, 1])
-    tf = BOLDcastTransform(
-        cortex_index=cortex_index, patch_assignment=assignment, n_patches=2
-    )
+    tf = BOLDcastTransform(cortex_index=cortex_index, patch_assignment=assignment, n_patches=2)
     sample = {"bold": bold}
     out = tf(sample)
     assert "tokens" not in sample  # input dict must not be mutated

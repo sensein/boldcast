@@ -166,7 +166,7 @@ def main() -> int:  # noqa: C901
         n_params = sum(p.numel() for p in model.parameters())
         print(
             f"[baseline_eval] loaded ckpt from {ckpt_path} "
-            f"(step={ckpt.get('step', '?')}); params={n_params/1e6:.3f}M"
+            f"(step={ckpt.get('step', '?')}); params={n_params / 1e6:.3f}M"
         )
 
     print(
@@ -185,9 +185,9 @@ def main() -> int:  # noqa: C901
         rel_input = (results["input"] - results["model"]) / results["input"]
         rel_wmean = (results["window_mean"] - results["model"]) / results["window_mean"]
         print("[baseline_eval] model improvement over baselines:")
-        print(f"  vs predict-zero       : {rel_zero*100:+.2f}%")
-        print(f"  vs predict-input      : {rel_input*100:+.2f}%")
-        print(f"  vs predict-window-mean: {rel_wmean*100:+.2f}%")
+        print(f"  vs predict-zero       : {rel_zero * 100:+.2f}%")
+        print(f"  vs predict-input      : {rel_input * 100:+.2f}%")
+        print(f"  vs predict-window-mean: {rel_wmean * 100:+.2f}%")
 
     out_path = Path(args.out_json)
     out_path.parent.mkdir(parents=True, exist_ok=True)

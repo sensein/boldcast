@@ -13,9 +13,7 @@ from boldcast.tokenize.knn import build_or_load_knn
 def test_knn_shape_and_self_inclusion(
     synthetic_mesh_lh: tuple[np.ndarray, np.ndarray],
     synthetic_mesh_rh: tuple[np.ndarray, np.ndarray],
-    synthetic_gifti_path_factory: Callable[
-        [tuple[np.ndarray, np.ndarray], str], Path
-    ],
+    synthetic_gifti_path_factory: Callable[[tuple[np.ndarray, np.ndarray], str], Path],
     tmp_path: Path,
 ) -> None:
     """kNN output is (P, k) int; row i contains i (self-link first)."""
@@ -53,9 +51,7 @@ def test_knn_shape_and_self_inclusion(
 def test_knn_cache_metadata_mismatch_raises(
     synthetic_mesh_lh: tuple[np.ndarray, np.ndarray],
     synthetic_mesh_rh: tuple[np.ndarray, np.ndarray],
-    synthetic_gifti_path_factory: Callable[
-        [tuple[np.ndarray, np.ndarray], str], Path
-    ],
+    synthetic_gifti_path_factory: Callable[[tuple[np.ndarray, np.ndarray], str], Path],
     tmp_path: Path,
 ) -> None:
     """Different k or assignment → cache mismatch raises ValueError."""

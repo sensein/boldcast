@@ -112,9 +112,7 @@ def test_compute_trivial_baselines_returns_expected_keys() -> None:
     """Without a model, returns exactly the three baseline keys."""
     tokens = _synth_tokens().squeeze(-1)  # (B, T, P)
     loader = _SyntheticLoader([tokens])
-    result = compute_trivial_baselines(
-        loader, HORIZONS, torch.device("cpu"), model=None
-    )
+    result = compute_trivial_baselines(loader, HORIZONS, torch.device("cpu"), model=None)
     assert set(result.keys()) == {"zero", "input", "window_mean"}
     assert all(isinstance(v, float) for v in result.values())
 
@@ -123,16 +121,14 @@ def test_compute_trivial_baselines_matches_primitives_on_single_batch() -> None:
     """One-batch loader: returned values equal the primitive function results."""
     tokens = _synth_tokens().squeeze(-1)  # (B, T, P) — loader path will unsqueeze
     loader = _SyntheticLoader([tokens])
-    result = compute_trivial_baselines(
-        loader, HORIZONS, torch.device("cpu"), model=None
-    )
+    result = compute_trivial_baselines(loader, HORIZONS, torch.device("cpu"), model=None)
     # Primitives expect (B, T, P, d_in); loader adds the d_in axis via unsqueeze(-1).
     tokens_full = tokens.unsqueeze(-1)
     assert abs(result["zero"] - predict_zero_loss(tokens_full, HORIZONS).item()) < 1e-5
     assert abs(result["input"] - predict_input_loss(tokens_full, HORIZONS).item()) < 1e-5
-    assert abs(
-        result["window_mean"] - predict_window_mean_loss(tokens_full, HORIZONS).item()
-    ) < 1e-5
+    assert (
+        abs(result["window_mean"] - predict_window_mean_loss(tokens_full, HORIZONS).item()) < 1e-5
+    )
 
 
 def test_compute_trivial_baselines_averages_over_batches() -> None:
@@ -140,9 +136,7 @@ def test_compute_trivial_baselines_averages_over_batches() -> None:
     tokens_a = _synth_tokens().squeeze(-1)
     tokens_b = (_synth_tokens() * 2.0).squeeze(-1)
     loader = _SyntheticLoader([tokens_a, tokens_b])
-    result = compute_trivial_baselines(
-        loader, HORIZONS, torch.device("cpu"), model=None
-    )
+    result = compute_trivial_baselines(loader, HORIZONS, torch.device("cpu"), model=None)
     # predict-zero batched: ((20.6667 from tokens_a) + (82.6667 from tokens_b)) / 2 = 51.6667
     expected_zero = (20.6666667 + 82.6666667) / 2
     assert abs(result["zero"] - expected_zero) < 1e-4
@@ -159,7 +153,5 @@ def test_compute_trivial_baselines_averages_over_batches() -> None:
 def test_compute_trivial_baselines_empty_loader_avoids_division_by_zero() -> None:
     """Empty loader returns 0.0 for every baseline (max(n_batches, 1) guard)."""
     loader = _SyntheticLoader([])
-    result = compute_trivial_baselines(
-        loader, HORIZONS, torch.device("cpu"), model=None
-    )
+    result = compute_trivial_baselines(loader, HORIZONS, torch.device("cpu"), model=None)
     assert result == {"zero": 0.0, "input": 0.0, "window_mean": 0.0}

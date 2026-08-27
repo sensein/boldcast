@@ -58,9 +58,7 @@ class _SyntheticWindows(Dataset[dict[str, torch.Tensor]]):
         x[:, 0, :] = torch.randn(n, P, generator=g)
         noise_scale = (1.0 - rho**2) ** 0.5
         for t in range(1, T):
-            x[:, t, :] = (
-                rho * x[:, t - 1, :] + noise_scale * torch.randn(n, P, generator=g)
-            )
+            x[:, t, :] = rho * x[:, t - 1, :] + noise_scale * torch.randn(n, P, generator=g)
         self.windows = x
 
     def __len__(self) -> int:
@@ -153,18 +151,14 @@ def test_sampler_set_epoch_called_per_cycle(tmp_path: Path) -> None:
         f"Expected at least 2 set_epoch calls but got: {spy.epochs_seen}"
     )
     # Epochs must start at 0
-    assert spy.epochs_seen[0] == 0, (
-        f"First set_epoch call should be 0, got {spy.epochs_seen[0]}"
-    )
+    assert spy.epochs_seen[0] == 0, f"First set_epoch call should be 0, got {spy.epochs_seen[0]}"
     # Epochs must strictly increase by 1
     for i in range(1, len(spy.epochs_seen)):
         assert spy.epochs_seen[i] == spy.epochs_seen[i - 1] + 1, (
             f"Non-sequential epoch call: {spy.epochs_seen}"
         )
     # With 5-batch loader and 12 steps: cycles at steps 0, 5, 10 → epochs [0,1,2]
-    assert spy.epochs_seen == [0, 1, 2], (
-        f"Expected [0, 1, 2], got {spy.epochs_seen}"
-    )
+    assert spy.epochs_seen == [0, 1, 2], f"Expected [0, 1, 2], got {spy.epochs_seen}"
 
 
 # ---------------------------------------------------------------------------
@@ -200,7 +194,7 @@ def test_rank_zero_only_io_suppressed_on_non_rank_zero(tmp_path: Path) -> None:
             horizons=(1, 5),
             grad_clip_norm=1.0,
             precision="fp32",
-            log_every=1,   # would log every step if rank-0
+            log_every=1,  # would log every step if rank-0
             ckpt_every=2,  # would checkpoint at step 2, 4, ... if rank-0
             out_dir=tmp_path,
         )
@@ -211,9 +205,7 @@ def test_rank_zero_only_io_suppressed_on_non_rank_zero(tmp_path: Path) -> None:
         "loss_log.jsonl was created on non-rank-0 process — IO not suppressed"
     )
     pt_files = list(tmp_path.glob("*.pt"))
-    assert len(pt_files) == 0, (
-        f"Checkpoint files found on non-rank-0 process: {pt_files}"
-    )
+    assert len(pt_files) == 0, f"Checkpoint files found on non-rank-0 process: {pt_files}"
 
 
 # ---------------------------------------------------------------------------
@@ -229,13 +221,9 @@ def test_all_reduce_no_op_single_process(tmp_path: Path) -> None:
     """
     _, _, loader, trainer = _build_tiny_setup(tmp_path, n_data=5)
     history = trainer.fit(loader, max_steps=10)
-    assert len(history["loss"]) == 10, (
-        f"Expected 10 loss values, got {len(history['loss'])}"
-    )
+    assert len(history["loss"]) == 10, f"Expected 10 loss values, got {len(history['loss'])}"
     for i, v in enumerate(history["loss"]):
-        assert torch.isfinite(torch.tensor(v)), (
-            f"Non-finite loss at step {i}: {v}"
-        )
+        assert torch.isfinite(torch.tensor(v)), f"Non-finite loss at step {i}: {v}"
 
 
 # ---------------------------------------------------------------------------
@@ -267,12 +255,14 @@ def test_fit_runs_val_loop_with_val_loader_and_val_every(tmp_path: Path) -> None
     _, _, train_loader, trainer = _build_tiny_setup(tmp_path, n_data=5)
     _, _, val_loader, _ = _build_tiny_setup(tmp_path, n_data=4)  # 4-window val set
     history = trainer.fit(
-        train_loader, max_steps=30, val_loader=val_loader, val_every=10,
+        train_loader,
+        max_steps=30,
+        val_loader=val_loader,
+        val_every=10,
     )
     # max_steps=30, val_every=10 → val at steps 9, 19, 29 (1-indexed eval boundary)
     assert len(history["val_step"]) == 3, (
-        f"Expected 3 val measurements, got {len(history['val_step'])}: "
-        f"{history['val_step']}"
+        f"Expected 3 val measurements, got {len(history['val_step'])}: {history['val_step']}"
     )
     assert len(history["val_loss"]) == 3
     for v in history["val_loss"]:
@@ -386,9 +376,7 @@ def test_eval_uses_unwrapped_module_under_ddp(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize("rank_zero", [True, False])
-def test_eval_broadcast_tensor_on_trainer_device(
-    tmp_path: Path, rank_zero: bool
-) -> None:
+def test_eval_broadcast_tensor_on_trainer_device(tmp_path: Path, rank_zero: bool) -> None:
     """Regression for sbatch 14220441: dist.broadcast must receive a tensor on
     trainer.device, not the default CPU — on BOTH the rank-0 and non-rank-0
     construction paths.
@@ -413,9 +401,7 @@ def test_eval_broadcast_tensor_on_trainer_device(
     ]
     with (
         patch("boldcast.training.trainer.dist.is_initialized", return_value=True),
-        patch(
-            "boldcast.training.trainer.is_rank_zero", return_value=rank_zero
-        ),
+        patch("boldcast.training.trainer.is_rank_zero", return_value=rank_zero),
         patch("boldcast.training.trainer.dist.broadcast"),
         patch("boldcast.training.trainer.dist.barrier"),
         patch.object(torch, "tensor", wraps=torch.tensor) as mock_tensor,
@@ -426,21 +412,16 @@ def test_eval_broadcast_tensor_on_trainer_device(
     if rank_zero:
         # Rank-0 path constructs the result via torch.tensor(mean_loss, …).
         calls = [
-            call for call in mock_tensor.call_args_list
-            if call.kwargs.get("dtype") is torch.float64
+            call for call in mock_tensor.call_args_list if call.kwargs.get("dtype") is torch.float64
         ]
         ctor = "torch.tensor"
     else:
         # Non-rank-0 path uses torch.zeros((), …).
         calls = [
-            call for call in mock_zeros.call_args_list
-            if call.kwargs.get("dtype") is torch.float64
+            call for call in mock_zeros.call_args_list if call.kwargs.get("dtype") is torch.float64
         ]
         ctor = "torch.zeros"
-    assert calls, (
-        f"expected a {ctor}(…, dtype=float64, …) call in _eval on "
-        f"rank_zero={rank_zero}"
-    )
+    assert calls, f"expected a {ctor}(…, dtype=float64, …) call in _eval on rank_zero={rank_zero}"
     for call in calls:
         assert call.kwargs.get("device") == trainer.device, (
             f"_eval result tensor constructed via {ctor} without "

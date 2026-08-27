@@ -54,9 +54,7 @@ def main() -> int:
                 f"NaN/Inf in built window: {key}, start={sample['window_start']}"
             )
         dt = time.perf_counter() - t0
-        print(
-            f"[day6] {split}: built {n_built} Schaefer cache files in {dt:.1f} s"
-        )
+        print(f"[day6] {split}: built {n_built} Schaefer cache files in {dt:.1f} s")
 
     print("[day6] cache build done.")
     return 0

@@ -17,11 +17,17 @@ SCRIPT = REPO_ROOT / "scripts" / "day5_train_boldcast.py"
 def test_day5_script_dry_run_completes(tmp_path: Path) -> None:
     """--dry-run should construct argparse + verify imports without loading data."""
     result = subprocess.run(
-        [sys.executable, str(SCRIPT),
-         "--config", str(REPO_ROOT / "configs" / "demo.yaml"),
-         "--out-dir", str(tmp_path / "smoke_out"),
-         "--max-steps", "10",
-         "--dry-run"],
+        [
+            sys.executable,
+            str(SCRIPT),
+            "--config",
+            str(REPO_ROOT / "configs" / "demo.yaml"),
+            "--out-dir",
+            str(tmp_path / "smoke_out"),
+            "--max-steps",
+            "10",
+            "--dry-run",
+        ],
         cwd=str(REPO_ROOT),
         capture_output=True,
         text=True,
@@ -48,9 +54,7 @@ def test_day5_script_help_works() -> None:
     )
     assert result.returncode == 0
     for flag in ("--config", "--max-steps", "--out-dir", "--val-every", "--dry-run"):
-        assert flag in result.stdout, (
-            f"Expected {flag} in --help output. Got:\n{result.stdout}"
-        )
+        assert flag in result.stdout, f"Expected {flag} in --help output. Got:\n{result.stdout}"
 
 
 def test_day5_sh_script_is_valid_bash() -> None:
@@ -58,11 +62,12 @@ def test_day5_sh_script_is_valid_bash() -> None:
     sh = REPO_ROOT / "scripts" / "day5_train_boldcast.sh"
     # bash -n: parse-only check
     result = subprocess.run(
-        ["bash", "-n", str(sh)], capture_output=True, text=True, timeout=10,
+        ["bash", "-n", str(sh)],
+        capture_output=True,
+        text=True,
+        timeout=10,
     )
-    assert result.returncode == 0, (
-        f"bash -n failed: stderr={result.stderr}"
-    )
+    assert result.returncode == 0, f"bash -n failed: stderr={result.stderr}"
     content = sh.read_text()
     # Required SBATCH directives
     for directive in [

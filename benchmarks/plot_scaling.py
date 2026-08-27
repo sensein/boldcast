@@ -7,7 +7,8 @@ Generates a figure showing:
 
 Usage:
     python benchmarks/plot_scaling.py --input "$SCRATCH/output/scaling_results.jsonl"
-    python benchmarks/plot_scaling.py --input "$SCRATCH/output/scaling_results.jsonl" --output "$SCRATCH/output/scaling.pdf"
+    python benchmarks/plot_scaling.py --input "$SCRATCH/output/scaling_results.jsonl" \
+        --output "$SCRATCH/output/scaling.pdf"
 """
 
 import argparse
@@ -15,8 +16,6 @@ import json
 from pathlib import Path
 
 import matplotlib.pyplot as plt
-import matplotlib.ticker as ticker
-import numpy as np
 
 
 def load_results(path: str) -> list[dict]:
@@ -32,7 +31,7 @@ def load_results(path: str) -> list[dict]:
     return results
 
 
-def plot_scaling(results: list[dict], output: str | None = None, title_suffix: str = ""):
+def plot_scaling(results: list[dict], output: str | None = None, title_suffix: str = "") -> None:
     """Generate scaling plot."""
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(11, 4.5), dpi=150)
 
@@ -54,13 +53,30 @@ def plot_scaling(results: list[dict], output: str | None = None, title_suffix: s
 
     # --- Left: Throughput ---
     ax1.plot(n_gpus, ideal, "--", color="#999999", linewidth=1.5, label="Ideal linear", zorder=1)
-    ax1.plot(n_gpus, throughput, "o-", color="#2563eb", linewidth=2, markersize=8,
-             markerfacecolor="white", markeredgewidth=2, label="Measured", zorder=2)
+    ax1.plot(
+        n_gpus,
+        throughput,
+        "o-",
+        color="#2563eb",
+        linewidth=2,
+        markersize=8,
+        markerfacecolor="white",
+        markeredgewidth=2,
+        label="Measured",
+        zorder=2,
+    )
 
     # Annotate throughput values
     for g, t in zip(n_gpus, throughput):
-        ax1.annotate(f"{t:.1f}", (g, t), textcoords="offset points",
-                     xytext=(0, 12), ha="center", fontsize=8.5, color="#2563eb")
+        ax1.annotate(
+            f"{t:.1f}",
+            (g, t),
+            textcoords="offset points",
+            xytext=(0, 12),
+            ha="center",
+            fontsize=8.5,
+            color="#2563eb",
+        )
 
     ax1.set_xlabel("Number of GPUs", fontsize=11)
     ax1.set_ylabel("Throughput (sequences / sec)", fontsize=11)
@@ -76,8 +92,15 @@ def plot_scaling(results: list[dict], output: str | None = None, title_suffix: s
     ax2.axhline(y=100, color="#999999", linestyle="--", linewidth=1, label="Ideal (100%)")
 
     for g, e in zip(n_gpus, efficiency):
-        ax2.annotate(f"{e:.0f}%", (g, e), textcoords="offset points",
-                     xytext=(0, 6), ha="center", fontsize=9, fontweight="bold")
+        ax2.annotate(
+            f"{e:.0f}%",
+            (g, e),
+            textcoords="offset points",
+            xytext=(0, 6),
+            ha="center",
+            fontsize=9,
+            fontweight="bold",
+        )
 
     ax2.set_xlabel("Number of GPUs", fontsize=11)
     ax2.set_ylabel("Parallel Efficiency (%)", fontsize=11)
@@ -87,10 +110,7 @@ def plot_scaling(results: list[dict], output: str | None = None, title_suffix: s
     ax2.legend(fontsize=9)
     ax2.grid(True, alpha=0.3, axis="y")
 
-    fig.suptitle(
-        f"BOLDcast — {gpu_name}\n{config_str}",
-        fontsize=10, color="#555555", y=0.02
-    )
+    fig.suptitle(f"BOLDcast — {gpu_name}\n{config_str}", fontsize=10, color="#555555", y=0.02)
     fig.tight_layout(rect=[0, 0.06, 1, 1])
 
     if output:
@@ -103,12 +123,20 @@ def plot_scaling(results: list[dict], output: str | None = None, title_suffix: s
     plt.close(fig)
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description="Plot multi-GPU scaling results")
-    parser.add_argument("--input", type=str, default="results/scaling_results.jsonl",
-                        help="Path to JSONL benchmark results")
-    parser.add_argument("--output", type=str, default=None,
-                        help="Output figure path (e.g., figures/scaling.pdf). Shows plot if not set.")
+    parser.add_argument(
+        "--input",
+        type=str,
+        default="results/scaling_results.jsonl",
+        help="Path to JSONL benchmark results",
+    )
+    parser.add_argument(
+        "--output",
+        type=str,
+        default=None,
+        help="Output figure path (e.g., figures/scaling.pdf). Shows plot if not set.",
+    )
     args = parser.parse_args()
 
     results = load_results(args.input)
@@ -120,8 +148,10 @@ def main():
 
     print(f"Loaded {len(results)} benchmark results:")
     for r in results:
-        print(f"  {r['n_gpus']} GPU(s): {r['throughput_sequences_per_sec']:.2f} seq/s, "
-              f"peak {r['peak_memory_gb']:.1f} GB")
+        print(
+            f"  {r['n_gpus']} GPU(s): {r['throughput_sequences_per_sec']:.2f} seq/s, "
+            f"peak {r['peak_memory_gb']:.1f} GB"
+        )
 
     plot_scaling(results, output=args.output)
 

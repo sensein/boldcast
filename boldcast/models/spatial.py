@@ -38,10 +38,7 @@ class KNNAttention(nn.Module):
         if adjacency.dtype != torch.long:
             adjacency = adjacency.long()
         if adjacency.ndim != 2 or adjacency.shape[1] != k:
-            raise ValueError(
-                f"adjacency shape {tuple(adjacency.shape)} does not match "
-                f"(P, k={k})"
-            )
+            raise ValueError(f"adjacency shape {tuple(adjacency.shape)} does not match (P, k={k})")
         self.d_model = d_model
         self.k = k
         self.n_patches = adjacency.shape[0]
@@ -72,8 +69,7 @@ class KNNAttention(nn.Module):
         """
         if x.shape[-2] != self.n_patches:
             raise ValueError(
-                f"input has P={x.shape[-2]} tokens but adjacency was built "
-                f"for P={self.n_patches}"
+                f"input has P={x.shape[-2]} tokens but adjacency was built for P={self.n_patches}"
             )
         b, t, p, d = x.shape
         h = self.norm(x)  # (B, T, P, d)

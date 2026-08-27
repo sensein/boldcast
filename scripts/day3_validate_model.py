@@ -74,9 +74,7 @@ def main() -> int:
     train_subjects = _read_subject_list(str(cfg.data.subjects_train_file))
     ref_subject = train_subjects[0]
     ref_run = cfg.data.runs[0]
-    ref_path = str(cfg.data.dtseries_pattern).format(
-        subject=ref_subject, run=ref_run
-    )
+    ref_path = str(cfg.data.dtseries_pattern).format(subject=ref_subject, run=ref_run)
     print(f"[day3] reference subject={ref_subject}, run={ref_run}")
     _, header = load_dtseries(ref_path)
     cortex_lh, cortex_rh = cortex_grayordinate_indices(header)
@@ -124,7 +122,7 @@ def main() -> int:
         use_checkpoint=True,
     ).cuda()
     n_params = sum(p.numel() for p in model.parameters())
-    print(f"[day3]   params: {n_params/1e6:.3f} M")
+    print(f"[day3]   params: {n_params / 1e6:.3f} M")
 
     # Warmup forward to prime mamba_ssm's selective-scan CUDA kernel
     # compilation, then measure the canonical BF16 forward.
@@ -148,16 +146,14 @@ def main() -> int:
     fwd_peak_gb = torch.cuda.max_memory_allocated() / 1024**3
     print(
         f"[day3] forward {tuple(x.shape)} -> {tuple(out.shape)} "
-        f"in {dt*1000:.1f} ms (BF16 autocast, post-warmup), "
+        f"in {dt * 1000:.1f} ms (BF16 autocast, post-warmup), "
         f"peak forward memory {fwd_peak_gb:.2f} GB"
     )
 
     # Training-mode forward+backward under BF16 autocast + activation
     # checkpointing. This is the regime acceptance is judged against.
     model.train()
-    x_b = torch.randn(
-        2, 256, n_patches, 1, device="cuda", requires_grad=True
-    )
+    x_b = torch.randn(2, 256, n_patches, 1, device="cuda", requires_grad=True)
     torch.cuda.reset_peak_memory_stats()
     with autocast(device_type="cuda", dtype=torch.bfloat16):
         out_b = model(x_b)

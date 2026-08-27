@@ -22,9 +22,7 @@ from pathlib import Path
 __all__ = ["load_repo_dotenv"]
 
 
-def load_repo_dotenv(
-    repo_root: Path | str, override: bool = True, max_parents: int = 4
-) -> None:
+def load_repo_dotenv(repo_root: Path | str, override: bool = True, max_parents: int = 4) -> None:
     """Load the project ``.env`` into ``os.environ`` if it can be found.
 
     Looks for ``.env`` at ``repo_root`` first, then walks up to ``max_parents``

@@ -153,7 +153,7 @@ def main() -> int:  # noqa: C901
     print(
         f"[day7-bc] loaded ckpt from {args.ckpt} "
         f"(step={ckpt.get('step', '?') if isinstance(ckpt, dict) else '?'}); "
-        f"params={sum(p.numel() for p in model.parameters())/1e6:.3f}M"
+        f"params={sum(p.numel() for p in model.parameters()) / 1e6:.3f}M"
     )
 
     pools: list[Literal["mean_tp", "mean_t"]] = ["mean_tp", "mean_t"]
@@ -163,9 +163,7 @@ def main() -> int:  # noqa: C901
     last_sids: np.ndarray | None = None
     for pool in pools:
         print(f"[day7-bc] extracting embeddings: pool={pool}")
-        emb, sids, _rids = extract_embeddings(
-            model, val_ds, pool=pool, device=device
-        )
+        emb, sids, _rids = extract_embeddings(model, val_ds, pool=pool, device=device)
         last_sids = sids
         n_runs, d_emb = int(emb.shape[0]), int(emb.shape[1])
         print(f"[day7-bc]   n_runs={n_runs}, d_emb={d_emb}")
@@ -176,8 +174,7 @@ def main() -> int:  # noqa: C901
             point, lo, hi = binomial_ci_topk(emb, sids, k=k, ci=args.ci)
             cis[int(k)] = {"point": point, "ci_low": lo, "ci_high": hi}
             print(
-                f"[day7-bc]   top-{k}: {point:.4f}  "
-                f"{int(args.ci*100)}% CI=[{lo:.4f}, {hi:.4f}]"
+                f"[day7-bc]   top-{k}: {point:.4f}  {int(args.ci * 100)}% CI=[{lo:.4f}, {hi:.4f}]"
             )
         results[pool] = {
             "topk": {int(k): float(v) for k, v in topk.items()},

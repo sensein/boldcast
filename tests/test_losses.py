@@ -12,7 +12,7 @@ from boldcast.training.loss import build_forecast_targets, forecasting_loss
 
 
 def test_build_forecast_targets_shape_for_two_horizons() -> None:
-    tokens = torch.randn(2, 8, 3, 1)            # (B=2, T=8, P=3, d_in=1)
+    tokens = torch.randn(2, 8, 3, 1)  # (B=2, T=8, P=3, d_in=1)
     out = build_forecast_targets(tokens, horizons=(1, 5))
     # T_valid = T - max(horizons) = 8 - 5 = 3
     assert out.shape == (2, 3, 3, 2, 1)
@@ -53,9 +53,9 @@ def test_build_forecast_targets_rejects_non_positive_horizon() -> None:
 def test_build_forecast_targets_rejects_max_horizon_ge_t() -> None:
     tokens = torch.randn(2, 8, 3, 1)
     with pytest.raises(ValueError, match=r"max\(horizons\)"):
-        build_forecast_targets(tokens, horizons=(1, 8))   # 8 == T
+        build_forecast_targets(tokens, horizons=(1, 8))  # 8 == T
     with pytest.raises(ValueError, match=r"max\(horizons\)"):
-        build_forecast_targets(tokens, horizons=(1, 9))   # 9 > T
+        build_forecast_targets(tokens, horizons=(1, 9))  # 9 > T
 
 
 def test_build_forecast_targets_preserves_horizon_insertion_order() -> None:

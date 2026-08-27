@@ -13,9 +13,7 @@ from pathlib import Path
 def _load_module() -> object:
     """Import scripts/build_family_disjoint_splits.py as a module."""
     script_path = (
-        Path(__file__).resolve().parent.parent
-        / "scripts"
-        / "build_family_disjoint_splits.py"
+        Path(__file__).resolve().parent.parent / "scripts" / "build_family_disjoint_splits.py"
     )
     spec = importlib.util.spec_from_file_location("_bfds", script_path)
     assert spec is not None and spec.loader is not None
@@ -50,7 +48,11 @@ def test_family_overlap_is_zero() -> None:
     pool = [f"s{i}" for i in range(20)]
     fam_map = {f"s{i}": f"F{i // 2}" for i in range(20)}  # 10 pairs
     train, heldout, audit = assign_families(
-        pool, fam_map, target_train=10, target_heldout=8, seed=0,
+        pool,
+        fam_map,
+        target_train=10,
+        target_heldout=8,
+        seed=0,
     )
     assert audit["family_overlap_count"] == 0
     train_fams = {fam_map[s] for s in train}
@@ -63,7 +65,11 @@ def test_train_target_satisfied_before_heldout() -> None:
     pool = [f"s{i}" for i in range(16)]
     fam_map = {f"s{i}": f"F{i}" for i in range(16)}  # 16 singleton families
     train, heldout, _ = assign_families(
-        pool, fam_map, target_train=10, target_heldout=4, seed=0,
+        pool,
+        fam_map,
+        target_train=10,
+        target_heldout=4,
+        seed=0,
     )
     assert len(train) == 10
     assert len(heldout) == 4
@@ -74,7 +80,11 @@ def test_overflow_reported_when_pool_too_small() -> None:
     pool = ["s1", "s2", "s3"]
     fam_map = {"s1": "F1", "s2": "F2", "s3": "F3"}
     train, heldout, audit = assign_families(
-        pool, fam_map, target_train=10, target_heldout=4, seed=0,
+        pool,
+        fam_map,
+        target_train=10,
+        target_heldout=4,
+        seed=0,
     )
     assert audit["overflow_train"] is True
     assert audit["overflow_heldout"] is True
@@ -96,7 +106,11 @@ def test_missing_subjects_reported() -> None:
     pool = ["s1", "s2", "s_missing"]
     fam_map = {"s1": "F1", "s2": "F2"}
     _, _, audit = assign_families(
-        pool, fam_map, target_train=1, target_heldout=1, seed=0,
+        pool,
+        fam_map,
+        target_train=1,
+        target_heldout=1,
+        seed=0,
     )
     assert audit["n_subjects_missing_from_csv"] == 1
     assert audit["subjects_missing_from_csv"] == ["s_missing"]
@@ -107,7 +121,11 @@ def test_audit_never_exposes_family_ids() -> None:
     pool = [f"s{i}" for i in range(10)]
     fam_map = {f"s{i}": f"F_secret_{i}" for i in range(10)}
     _, _, audit = assign_families(
-        pool, fam_map, target_train=4, target_heldout=4, seed=0,
+        pool,
+        fam_map,
+        target_train=4,
+        target_heldout=4,
+        seed=0,
     )
     # No key in the audit should leak family IDs.
     forbidden_substrings = ("F_secret_", "family_id", "Family_ID")

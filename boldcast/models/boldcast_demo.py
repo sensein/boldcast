@@ -58,9 +58,7 @@ class _MambaKnnPair(nn.Module):
         from boldcast.models.temporal import MambaBlock
 
         self.mamba = MambaBlock(d_model=d_model)
-        self.knn = KNNAttention(
-            d_model=d_model, k=k_neighbors, adjacency=adjacency
-        )
+        self.knn = KNNAttention(d_model=d_model, k=k_neighbors, adjacency=adjacency)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.mamba(x)
@@ -125,9 +123,9 @@ class BOLDcastDemo(nn.Module):
         self.embed_proj = nn.Linear(d_in, d_model, bias=True)
         self.layers = nn.ModuleList()
         for _ in range(n_layers):
-            self.layers.append(_MambaKnnPair(
-                d_model=d_model, k_neighbors=k_neighbors, adjacency=adjacency
-            ))
+            self.layers.append(
+                _MambaKnnPair(d_model=d_model, k_neighbors=k_neighbors, adjacency=adjacency)
+            )
         self.final_norm = nn.LayerNorm(d_model)
         self.head = nn.Linear(d_model, len(self.horizons) * d_in, bias=True)
 
@@ -138,7 +136,7 @@ class BOLDcastDemo(nn.Module):
             n_params = sum(p.numel() for p in self.parameters())
             if not (0.5e6 <= n_params <= 1.5e6):
                 raise AssertionError(
-                    f"BOLDcastDemo param count {n_params/1e6:.3f}M is "
+                    f"BOLDcastDemo param count {n_params / 1e6:.3f}M is "
                     "outside the Day-3 budget [0.5M, 1.5M]. Spec drift?"
                 )
 
@@ -146,9 +144,7 @@ class BOLDcastDemo(nn.Module):
         """Run everything except the final head. Returns
         ``(B, T, P, d_model)`` — used by Day-7 fingerprint eval."""
         if x.shape[-1] != self.d_in:
-            raise ValueError(
-                f"input last-dim {x.shape[-1]} != d_in={self.d_in}"
-            )
+            raise ValueError(f"input last-dim {x.shape[-1]} != d_in={self.d_in}")
         h = self.embed_proj(x)  # (B, T, P, d_model)
         use_cp = self.use_checkpoint and self.training
         for layer in self.layers:

@@ -38,9 +38,7 @@ def test_cortex_grayordinate_indices_partitions_lh_rh(synthetic_dtseries: Path) 
     np.testing.assert_array_equal(rh_mesh_idx, np.arange(50))
 
 
-def test_save_dtseries_roundtrip(
-    synthetic_dtseries: Path, tmp_path: Path
-) -> None:
+def test_save_dtseries_roundtrip(synthetic_dtseries: Path, tmp_path: Path) -> None:
     data_in, _ = load_dtseries(str(synthetic_dtseries))
     out = tmp_path / "roundtrip.dtseries.nii"
     save_dtseries(data_in, template=str(synthetic_dtseries), out=str(out))
@@ -48,9 +46,7 @@ def test_save_dtseries_roundtrip(
     np.testing.assert_array_equal(data_in, data_out)
 
 
-def test_save_dtseries_raises_on_shape_mismatch(
-    synthetic_dtseries: Path, tmp_path: Path
-) -> None:
+def test_save_dtseries_raises_on_shape_mismatch(synthetic_dtseries: Path, tmp_path: Path) -> None:
     """Mismatched ``data`` shape vs template axes must raise from our wrapper
     (with a specific message) rather than relying on nibabel's downstream
     check, which also emits a noisy UserWarning."""
@@ -65,17 +61,13 @@ def test_save_dtseries_raises_on_shape_mismatch(
     with warnings.catch_warnings():
         warnings.simplefilter("error")  # promote any UserWarning to error
         with pytest.raises(ValueError, match="does not match template axes"):
-            save_dtseries(
-                truncated, template=str(synthetic_dtseries), out=str(out)
-            )
+            save_dtseries(truncated, template=str(synthetic_dtseries), out=str(out))
 
     wrong_v = data[:, :50]  # V mismatch (50 vs template's 100)
     with warnings.catch_warnings():
         warnings.simplefilter("error")
         with pytest.raises(ValueError, match="does not match template axes"):
-            save_dtseries(
-                wrong_v, template=str(synthetic_dtseries), out=str(out)
-            )
+            save_dtseries(wrong_v, template=str(synthetic_dtseries), out=str(out))
 
 
 def test_extract_cortex_grayordinates_shape_and_values(

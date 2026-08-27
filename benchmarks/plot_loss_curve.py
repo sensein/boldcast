@@ -20,7 +20,8 @@ Usage:
     python benchmarks/plot_loss_curve.py --jsonl results/loss_log.jsonl
 
     # With output file
-    python benchmarks/plot_loss_curve.py --csv results/loss_log.csv --output "$SCRATCH/output/loss_curve.pdf"
+    python benchmarks/plot_loss_curve.py --csv results/loss_log.csv \
+        --output "$SCRATCH/output/loss_curve.pdf"
 """
 
 import argparse
@@ -35,6 +36,7 @@ import numpy as np
 def load_from_csv(path: str) -> dict:
     """Load loss data from CSV (step, train_loss, val_loss)."""
     import csv
+
     data = {"step": [], "train_loss": [], "val_loss": []}
     with open(path) as f:
         reader = csv.DictReader(f)
@@ -121,7 +123,7 @@ def plot_loss_curve(
     smooth_window: int = 10,
     title: str = "BOLDcast Preliminary Training — Baseline Convergence",
     subtitle: str = "",
-):
+) -> None:
     """Generate loss curve figure."""
     fig, ax = plt.subplots(figsize=(8, 4.5), dpi=150)
 
@@ -153,8 +155,16 @@ def plot_loss_curve(
     ax.set_title(title, fontsize=12, fontweight="bold")
 
     if subtitle:
-        ax.text(0.5, 0.97, subtitle, transform=ax.transAxes, fontsize=9,
-                color="#666666", ha="center", va="top")
+        ax.text(
+            0.5,
+            0.97,
+            subtitle,
+            transform=ax.transAxes,
+            fontsize=9,
+            color="#666666",
+            ha="center",
+            va="top",
+        )
 
     ax.legend(fontsize=9)
     ax.grid(True, alpha=0.3)
@@ -188,20 +198,26 @@ def plot_loss_curve(
     plt.close(fig)
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description="Plot training loss curve")
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument("--wandb", type=str, help="W&B run path: entity/project/run_id")
     source.add_argument("--csv", type=str, help="Path to CSV with step, train_loss, [val_loss]")
     source.add_argument("--jsonl", type=str, help="Path to JSONL with step, train_loss, [val_loss]")
 
-    parser.add_argument("--output", type=str, default=None,
-                        help="Output figure path (e.g., figures/loss_curve.pdf)")
+    parser.add_argument(
+        "--output", type=str, default=None, help="Output figure path (e.g., figures/loss_curve.pdf)"
+    )
     parser.add_argument("--smooth", type=int, default=10, help="Smoothing window size")
-    parser.add_argument("--title", type=str,
-                        default="BOLDcast Preliminary Training — Baseline Convergence")
-    parser.add_argument("--subtitle", type=str, default="",
-                        help="e.g., 'ROI-based Mamba, HCP resting-state, 1-step prediction'")
+    parser.add_argument(
+        "--title", type=str, default="BOLDcast Preliminary Training — Baseline Convergence"
+    )
+    parser.add_argument(
+        "--subtitle",
+        type=str,
+        default="",
+        help="e.g., 'ROI-based Mamba, HCP resting-state, 1-step prediction'",
+    )
     args = parser.parse_args()
 
     if args.wandb:
@@ -211,11 +227,15 @@ def main():
     elif args.jsonl:
         data = load_from_jsonl(args.jsonl)
 
-    print(f"Steps: {len(data['step'])}, "
-          f"Train loss range: [{min(data['train_loss']):.4f}, {max(data['train_loss']):.4f}]")
+    print(
+        f"Steps: {len(data['step'])}, "
+        f"Train loss range: [{min(data['train_loss']):.4f}, {max(data['train_loss']):.4f}]"
+    )
     if data["val_loss"]:
-        print(f"Val loss points: {len(data['val_loss'])}, "
-              f"range: [{min(data['val_loss']):.4f}, {max(data['val_loss']):.4f}]")
+        print(
+            f"Val loss points: {len(data['val_loss'])}, "
+            f"range: [{min(data['val_loss']):.4f}, {max(data['val_loss']):.4f}]"
+        )
 
     plot_loss_curve(
         data,

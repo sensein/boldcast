@@ -83,10 +83,7 @@ def main() -> int:
     print(f"[info] brain-model structures ({len(bm_names)}):")
     for bm in header["brain_models"]:
         slc = bm["slice"]
-        print(
-            f"         {bm['name']:<34} "
-            f"cols [{slc.start}:{slc.stop}]  n={slc.stop - slc.start}"
-        )
+        print(f"         {bm['name']:<34} cols [{slc.start}:{slc.stop}]  n={slc.stop - slc.start}")
 
     problems: list[str] = []
     if n_grayord != V_GRAYORD_STD:
@@ -97,16 +94,8 @@ def main() -> int:
         )
 
     # BOLDcast cortex order: CORTEX_LEFT slice then CORTEX_RIGHT slice.
-    lh = next(
-        bm
-        for bm in header["brain_models"]
-        if bm["name"] == "CIFTI_STRUCTURE_CORTEX_LEFT"
-    )
-    rh = next(
-        bm
-        for bm in header["brain_models"]
-        if bm["name"] == "CIFTI_STRUCTURE_CORTEX_RIGHT"
-    )
+    lh = next(bm for bm in header["brain_models"] if bm["name"] == "CIFTI_STRUCTURE_CORTEX_LEFT")
+    rh = next(bm for bm in header["brain_models"] if bm["name"] == "CIFTI_STRUCTURE_CORTEX_RIGHT")
     lh_cols = np.arange(lh["slice"].start, lh["slice"].stop, dtype=np.int64)
     rh_cols = np.arange(rh["slice"].start, rh["slice"].stop, dtype=np.int64)
     cortex_index = np.concatenate([lh_cols, rh_cols])  # fslr91k col -> BOLDcast col
@@ -131,8 +120,7 @@ def main() -> int:
         )
 
     is_direct_slice = bool(
-        cortex_index.size == V_CORTEX_STD
-        and np.array_equal(cortex_index, np.arange(V_CORTEX_STD))
+        cortex_index.size == V_CORTEX_STD and np.array_equal(cortex_index, np.arange(V_CORTEX_STD))
     )
 
     # Always write the index vector — the wrapper loads it regardless, so a

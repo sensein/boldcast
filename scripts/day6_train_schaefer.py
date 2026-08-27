@@ -193,7 +193,7 @@ def main() -> int:  # noqa: C901
     ).to(device)
     n_params = sum(p.numel() for p in _model.parameters())
     if is_rank_zero():
-        print(f"[day6]   params: {n_params/1e6:.3f} M")
+        print(f"[day6]   params: {n_params / 1e6:.3f} M")
     model = setup_model_for_ddp(
         _model,
         find_unused_parameters=bool(cfg.ddp.find_unused_parameters),
@@ -259,9 +259,7 @@ def main() -> int:  # noqa: C901
                 cleanup_distributed()
             raise SystemExit(1)
         model_val_loss = history["val_loss"][-1]
-        baselines = compute_trivial_baselines(
-            val_loader, horizons, device, model=None
-        )
+        baselines = compute_trivial_baselines(val_loader, horizons, device, model=None)
         best_name = min(baselines, key=lambda k: baselines[k])
         best_val = baselines[best_name]
         improvement_pct = (best_val - model_val_loss) / best_val * 100.0

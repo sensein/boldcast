@@ -114,6 +114,4 @@ def build_scheduler(
             schedulers=[warmup, cosine],
             milestones=[warmup_steps],
         )
-    raise ValueError(
-        f"schedule must be 'constant' or 'cosine', got {schedule!r}"
-    )
+    raise ValueError(f"schedule must be 'constant' or 'cosine', got {schedule!r}")

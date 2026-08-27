@@ -138,9 +138,7 @@ def compute_trivial_baselines(
             tokens = batch["tokens"].to(device).unsqueeze(-1)
             totals["zero"] += float(predict_zero_loss(tokens, horizons).item())
             totals["input"] += float(predict_input_loss(tokens, horizons).item())
-            totals["window_mean"] += float(
-                predict_window_mean_loss(tokens, horizons).item()
-            )
+            totals["window_mean"] += float(predict_window_mean_loss(tokens, horizons).item())
             if model is not None:
                 # Recomputed here for the model branch; primitives call this
                 # internally too. Share if this becomes a bottleneck.

@@ -130,9 +130,9 @@ def extract_embeddings(
             run_ids[i] = key[1]
 
         norms = np.linalg.norm(embeddings_arr, axis=1, keepdims=True)
-        embeddings_norm: NDArray[np.float32] = (
-            embeddings_arr / np.maximum(norms, 1e-12)
-        ).astype(np.float32, copy=False)
+        embeddings_norm: NDArray[np.float32] = (embeddings_arr / np.maximum(norms, 1e-12)).astype(
+            np.float32, copy=False
+        )
         return embeddings_norm, subject_ids, run_ids
     finally:
         model.train(mode=was_training)
@@ -324,12 +324,8 @@ def binomial_ci_topk(
         raise ValueError("binomial_ci_topk: embeddings is empty")
 
     alpha = 1.0 - ci
-    lo = 0.0 if correct == 0 else float(
-        stats.beta.ppf(alpha / 2.0, correct, n - correct + 1)
-    )
-    hi = 1.0 if correct == n else float(
-        stats.beta.ppf(1.0 - alpha / 2.0, correct + 1, n - correct)
-    )
+    lo = 0.0 if correct == 0 else float(stats.beta.ppf(alpha / 2.0, correct, n - correct + 1))
+    hi = 1.0 if correct == n else float(stats.beta.ppf(1.0 - alpha / 2.0, correct + 1, n - correct))
     point = float(correct) / float(n)
     return point, lo, hi
 
@@ -352,8 +348,7 @@ def paired_mcnemar(
     """
     if correct_a.shape != correct_b.shape:
         raise ValueError(
-            f"shape mismatch: correct_a={correct_a.shape}, "
-            f"correct_b={correct_b.shape}"
+            f"shape mismatch: correct_a={correct_a.shape}, correct_b={correct_b.shape}"
         )
     b_count = int((correct_a & ~correct_b).sum())
     c_count = int((~correct_a & correct_b).sum())

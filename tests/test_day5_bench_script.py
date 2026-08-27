@@ -46,6 +46,7 @@ def test_bench_no_cuda_exits_cleanly() -> None:
     assert result.returncode != 0
     # Either the SystemExit message OR an early import error message — both are
     # acceptable proof that the script didn't run forward+backward
-    assert "CUDA" in (result.stderr + result.stdout) or "mamba" in (
-        result.stderr + result.stdout
-    ).lower()
+    assert (
+        "CUDA" in (result.stderr + result.stdout)
+        or "mamba" in (result.stderr + result.stdout).lower()
+    )

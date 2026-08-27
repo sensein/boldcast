@@ -118,9 +118,7 @@ def _worker_forward_smoke(rank: int, port: int) -> None:
                 loss = ((pred - target) ** 2).mean()
 
                 # Invariant 3: finite loss.
-                assert torch.isfinite(loss).item(), (
-                    f"non-finite loss at step {step}, rank {rank}"
-                )
+                assert torch.isfinite(loss).item(), f"non-finite loss at step {step}, rank {rank}"
 
                 loss.backward()
                 optimizer.step()
@@ -129,8 +127,7 @@ def _worker_forward_smoke(rank: int, port: int) -> None:
             for warning in w_list:
                 msg = str(warning.message).lower()
                 assert "find_unused_parameters" not in msg, (
-                    f"Unexpected find_unused_parameters warning on rank {rank}: "
-                    f"{warning.message}"
+                    f"Unexpected find_unused_parameters warning on rank {rank}: {warning.message}"
                 )
 
         # Invariant 2: DDP gradient sync.
@@ -141,9 +138,7 @@ def _worker_forward_smoke(rank: int, port: int) -> None:
         local_grad = any_param.grad.clone()
 
         # Invariant 3 (grad): finite gradients.
-        assert torch.isfinite(local_grad).all().item(), (
-            f"non-finite gradient on rank {rank}"
-        )
+        assert torch.isfinite(local_grad).all().item(), f"non-finite gradient on rank {rank}"
 
         synced = local_grad.clone()
         dist.all_reduce(synced, op=dist.ReduceOp.SUM)

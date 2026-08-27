@@ -63,9 +63,13 @@ def _build_tiny_setup(
     n_patches, k = 8, 4
     adj = _identity_adjacency(n_patches, k)
     model = BOLDcastDemo(
-        d_in=1, d_model=8, n_layers=0,
-        n_patches=n_patches, k_neighbors=k,
-        adjacency=adj, horizons=horizons,
+        d_in=1,
+        d_model=8,
+        n_layers=0,
+        n_patches=n_patches,
+        k_neighbors=k,
+        adjacency=adj,
+        horizons=horizons,
     )
     opt = build_optimizer(model, lr=3e-3, weight_decay=0.0, betas=(0.9, 0.95))
     ds = _SyntheticWindows(n=4, T=16, P=n_patches, seed=0)
@@ -77,7 +81,7 @@ def _build_tiny_setup(
         device=torch.device("cpu"),
         horizons=horizons,
         grad_clip_norm=1.0,
-        precision="fp32",   # CPU has no BF16 autocast support; trainer must respect this
+        precision="fp32",  # CPU has no BF16 autocast support; trainer must respect this
         log_every=10,
         out_dir=tmp_path,
     )
@@ -124,8 +128,9 @@ def test_trainer_raises_on_non_finite_loss(tmp_path: Path) -> None:
     """A forward hook that returns NaN should make the trainer raise."""
     model, _, loader, trainer = _build_tiny_setup(tmp_path)
 
-    def nan_hook(_module: nn.Module, _input: tuple[torch.Tensor, ...],
-                 output: torch.Tensor) -> torch.Tensor:
+    def nan_hook(
+        _module: nn.Module, _input: tuple[torch.Tensor, ...], output: torch.Tensor
+    ) -> torch.Tensor:
         return output + float("nan")
 
     model.register_forward_hook(nan_hook)
@@ -148,9 +153,13 @@ def test_trainer_writes_periodic_checkpoint(tmp_path: Path) -> None:
     adj = _identity_adjacency(n_patches, k)
     seed_everything(0)
     model = BOLDcastDemo(
-        d_in=1, d_model=8, n_layers=0,
-        n_patches=n_patches, k_neighbors=k,
-        adjacency=adj, horizons=(1, 5),
+        d_in=1,
+        d_model=8,
+        n_layers=0,
+        n_patches=n_patches,
+        k_neighbors=k,
+        adjacency=adj,
+        horizons=(1, 5),
     )
     opt = build_optimizer(model, lr=3e-3, weight_decay=0.0, betas=(0.9, 0.95))
     trainer = Trainer(
@@ -175,9 +184,13 @@ def test_trainer_steps_scheduler(tmp_path: Path) -> None:
     adj = _identity_adjacency(n_patches, k)
     seed_everything(0)
     model = BOLDcastDemo(
-        d_in=1, d_model=8, n_layers=0,
-        n_patches=n_patches, k_neighbors=k,
-        adjacency=adj, horizons=(1, 5),
+        d_in=1,
+        d_model=8,
+        n_layers=0,
+        n_patches=n_patches,
+        k_neighbors=k,
+        adjacency=adj,
+        horizons=(1, 5),
     )
     opt = build_optimizer(model, lr=3e-3, weight_decay=0.0, betas=(0.9, 0.95))
     # StepLR halves the LR every step, so we can confirm it ran.
@@ -197,7 +210,7 @@ def test_trainer_steps_scheduler(tmp_path: Path) -> None:
     history = trainer.fit(loader, max_steps=3)
     # After 3 steps with gamma=0.5: lr should be 3e-3 * 0.5^3 = 3.75e-4
     assert history["lr"][-1] < history["lr"][0]
-    assert history["lr"][-1] == pytest.approx(3e-3 * 0.5 ** 3)
+    assert history["lr"][-1] == pytest.approx(3e-3 * 0.5**3)
 
 
 def test_trainer_rejects_horizon_mismatch_with_model(tmp_path: Path) -> None:
@@ -206,9 +219,13 @@ def test_trainer_rejects_horizon_mismatch_with_model(tmp_path: Path) -> None:
     adj = _identity_adjacency(n_patches, k)
     seed_everything(0)
     model = BOLDcastDemo(
-        d_in=1, d_model=8, n_layers=0,
-        n_patches=n_patches, k_neighbors=k,
-        adjacency=adj, horizons=(1, 5),
+        d_in=1,
+        d_model=8,
+        n_layers=0,
+        n_patches=n_patches,
+        k_neighbors=k,
+        adjacency=adj,
+        horizons=(1, 5),
     )
     opt = build_optimizer(model, lr=3e-3, weight_decay=0.0, betas=(0.9, 0.95))
     with pytest.raises(ValueError, match=r"horizons.*must match.*horizons"):
@@ -217,7 +234,7 @@ def test_trainer_rejects_horizon_mismatch_with_model(tmp_path: Path) -> None:
             optimizer=opt,
             scheduler=None,
             device=torch.device("cpu"),
-            horizons=(1,),                  # mismatch with model's (1, 5)
+            horizons=(1,),  # mismatch with model's (1, 5)
             precision="fp32",
             log_every=10,
             out_dir=tmp_path,

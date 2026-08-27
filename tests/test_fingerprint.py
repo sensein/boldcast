@@ -52,7 +52,11 @@ def _make_clustered_embeddings(
 def test_topk_accuracy_perfect_clusters() -> None:
     """Tiny-noise clusters → top-1 = 1.0."""
     emb, sids = _make_clustered_embeddings(
-        n_subjects=8, n_runs_per_subject=4, d_emb=32, noise_std=0.01, seed=0,
+        n_subjects=8,
+        n_runs_per_subject=4,
+        d_emb=32,
+        noise_std=0.01,
+        seed=0,
     )
     acc = topk_accuracy(emb, sids, k_list=[1, 5])
     assert acc[1] == pytest.approx(1.0)
@@ -74,7 +78,11 @@ def test_topk_accuracy_random_is_near_chance() -> None:
 def test_topk_accuracy_top_k_monotone_in_k() -> None:
     """top-k accuracy is non-decreasing in k."""
     emb, sids = _make_clustered_embeddings(
-        n_subjects=8, n_runs_per_subject=4, d_emb=16, noise_std=0.6, seed=42,
+        n_subjects=8,
+        n_runs_per_subject=4,
+        d_emb=16,
+        noise_std=0.6,
+        seed=42,
     )
     acc = topk_accuracy(emb, sids, k_list=[1, 3, 5])
     assert acc[1] <= acc[3] <= acc[5]
@@ -91,7 +99,11 @@ def test_topk_accuracy_excludes_self_match() -> None:
     on the basis of its own embedding, so top-1 = 0 here.
     """
     emb, sids = _make_clustered_embeddings(
-        n_subjects=4, n_runs_per_subject=1, d_emb=8, noise_std=0.01, seed=0,
+        n_subjects=4,
+        n_runs_per_subject=1,
+        d_emb=8,
+        noise_std=0.01,
+        seed=0,
     )
     acc = topk_accuracy(emb, sids, k_list=[1])
     assert acc[1] == pytest.approx(0.0)
@@ -102,7 +114,11 @@ def test_topk_accuracy_excludes_self_match() -> None:
 
 def test_per_run_correct_shape_and_dtype() -> None:
     emb, sids = _make_clustered_embeddings(
-        n_subjects=4, n_runs_per_subject=4, d_emb=16, noise_std=0.1, seed=1,
+        n_subjects=4,
+        n_runs_per_subject=4,
+        d_emb=16,
+        noise_std=0.1,
+        seed=1,
     )
     correct = per_run_correct(emb, sids, k=1)
     assert correct.shape == (16,)
@@ -112,7 +128,11 @@ def test_per_run_correct_shape_and_dtype() -> None:
 def test_per_run_correct_aggregates_to_topk() -> None:
     """Mean of per_run_correct equals top-k accuracy."""
     emb, sids = _make_clustered_embeddings(
-        n_subjects=8, n_runs_per_subject=4, d_emb=16, noise_std=0.5, seed=7,
+        n_subjects=8,
+        n_runs_per_subject=4,
+        d_emb=16,
+        noise_std=0.5,
+        seed=7,
     )
     acc = topk_accuracy(emb, sids, k_list=[1])[1]
     correct = per_run_correct(emb, sids, k=1)
@@ -125,7 +145,11 @@ def test_per_run_correct_aggregates_to_topk() -> None:
 def test_bootstrap_ci_seed_deterministic() -> None:
     """Same seed → identical CI; different seeds → CIs need not match."""
     emb, sids = _make_clustered_embeddings(
-        n_subjects=8, n_runs_per_subject=4, d_emb=16, noise_std=0.3, seed=0,
+        n_subjects=8,
+        n_runs_per_subject=4,
+        d_emb=16,
+        noise_std=0.3,
+        seed=0,
     )
     a = bootstrap_ci_topk(emb, sids, k=1, n_resamples=100, seed=0)
     b = bootstrap_ci_topk(emb, sids, k=1, n_resamples=100, seed=0)
@@ -145,7 +169,11 @@ def test_bootstrap_ci_bounds_and_ordering() -> None:
     subject correlation correctly; we test bounds, not tightness.
     """
     emb, sids = _make_clustered_embeddings(
-        n_subjects=8, n_runs_per_subject=4, d_emb=16, noise_std=0.3, seed=0,
+        n_subjects=8,
+        n_runs_per_subject=4,
+        d_emb=16,
+        noise_std=0.3,
+        seed=0,
     )
     point, lo, hi = bootstrap_ci_topk(emb, sids, k=1, n_resamples=200, seed=0)
     assert 0.0 <= lo <= hi <= 1.0
@@ -196,7 +224,11 @@ def test_mcnemar_symmetric_discordants_p_one() -> None:
 def test_binomial_ci_point_matches_topk_accuracy() -> None:
     """Point estimate must equal :func:`topk_accuracy` for the same k."""
     emb, sids = _make_clustered_embeddings(
-        n_subjects=8, n_runs_per_subject=4, d_emb=64, noise_std=0.3, seed=0,
+        n_subjects=8,
+        n_runs_per_subject=4,
+        d_emb=64,
+        noise_std=0.3,
+        seed=0,
     )
     point_topk = topk_accuracy(emb, sids, k_list=[1])[1]
     point_ci, _, _ = binomial_ci_topk(emb, sids, k=1)
@@ -207,7 +239,11 @@ def test_binomial_ci_brackets_point() -> None:
     """ci_low <= point <= ci_high — Clopper-Pearson is symmetric around the
     observed proportion in this sense (never collapses below point)."""
     emb, sids = _make_clustered_embeddings(
-        n_subjects=8, n_runs_per_subject=4, d_emb=64, noise_std=0.1, seed=1,
+        n_subjects=8,
+        n_runs_per_subject=4,
+        d_emb=64,
+        noise_std=0.1,
+        seed=1,
     )
     point, lo, hi = binomial_ci_topk(emb, sids, k=1)
     assert lo <= point <= hi
@@ -219,7 +255,11 @@ def test_binomial_ci_perfect_recall_hi_is_one() -> None:
     boundary case)."""
     # Tiny noise → all-correct retrieval on this regime.
     emb, sids = _make_clustered_embeddings(
-        n_subjects=4, n_runs_per_subject=4, d_emb=32, noise_std=0.01, seed=2,
+        n_subjects=4,
+        n_runs_per_subject=4,
+        d_emb=32,
+        noise_std=0.01,
+        seed=2,
     )
     point, lo, hi = binomial_ci_topk(emb, sids, k=1)
     assert point == pytest.approx(1.0)
@@ -257,7 +297,11 @@ def test_binomial_ci_does_not_collapse_on_small_n_perfectly_clustered() -> None:
     on small-n perfectly-clustered embeddings. The binomial CI must NOT
     sit below the point estimate."""
     emb, sids = _make_clustered_embeddings(
-        n_subjects=8, n_runs_per_subject=4, d_emb=128, noise_std=0.05, seed=4,
+        n_subjects=8,
+        n_runs_per_subject=4,
+        d_emb=128,
+        noise_std=0.05,
+        seed=4,
     )
     point, lo, hi = binomial_ci_topk(emb, sids, k=1)
     assert lo <= point, (
@@ -270,7 +314,11 @@ def test_binomial_ci_does_not_collapse_on_small_n_perfectly_clustered() -> None:
 def test_binomial_ci_ci_argument_validation() -> None:
     """ci must be in (0, 1)."""
     emb, sids = _make_clustered_embeddings(
-        n_subjects=4, n_runs_per_subject=2, d_emb=8, noise_std=0.1, seed=5,
+        n_subjects=4,
+        n_runs_per_subject=2,
+        d_emb=8,
+        noise_std=0.1,
+        seed=5,
     )
     with pytest.raises(ValueError, match="ci must be in"):
         binomial_ci_topk(emb, sids, k=1, ci=0.0)
@@ -282,7 +330,11 @@ def test_binomial_ci_narrower_than_bootstrap_on_perfectly_clustered() -> None:
     """Sanity: on the exact small-n strong-cluster regime that breaks the
     bootstrap, the binomial CI is also tighter (and meaningful)."""
     emb, sids = _make_clustered_embeddings(
-        n_subjects=8, n_runs_per_subject=4, d_emb=128, noise_std=0.05, seed=6,
+        n_subjects=8,
+        n_runs_per_subject=4,
+        d_emb=128,
+        noise_std=0.05,
+        seed=6,
     )
     _, b_lo, b_hi = binomial_ci_topk(emb, sids, k=1)
     _, boot_lo, boot_hi = bootstrap_ci_topk(emb, sids, k=1, n_resamples=200, seed=6)
@@ -292,4 +344,3 @@ def test_binomial_ci_narrower_than_bootstrap_on_perfectly_clustered() -> None:
     # We don't assert binomial is always strictly narrower (depends on N),
     # but bootstrap-collapse signature: hi - lo unusually small at low
     # accuracy.  Here we just confirm binomial CI is a sane interval.
-

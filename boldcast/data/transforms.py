@@ -10,9 +10,7 @@ from numpy.typing import NDArray
 __all__ = ["standardize_run"]
 
 
-def standardize_run(
-    x: NDArray[np.floating[Any]], eps: float = 1e-8
-) -> NDArray[np.float32]:
+def standardize_run(x: NDArray[np.floating[Any]], eps: float = 1e-8) -> NDArray[np.float32]:
     """Per-column (per-grayordinate) Z-score standardization over time.
 
     Parameters

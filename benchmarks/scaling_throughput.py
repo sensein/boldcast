@@ -26,7 +26,7 @@ import argparse
 import json
 import os
 import time
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from pathlib import Path
 
 import torch
@@ -60,18 +60,17 @@ class SimpleMambaBlock(nn.Module):
     Replace with actual Mamba block for real training.
     """
 
-    def __init__(self, d_model: int, expand: int = 2, d_conv: int = 4):
+    def __init__(self, d_model: int, expand: int = 2, d_conv: int = 4) -> None:
         super().__init__()
         d_inner = d_model * expand
         self.in_proj = nn.Linear(d_model, d_inner * 2, bias=False)
         self.conv1d = nn.Conv1d(
-            d_inner, d_inner, kernel_size=d_conv,
-            padding=d_conv - 1, groups=d_inner, bias=True
+            d_inner, d_inner, kernel_size=d_conv, padding=d_conv - 1, groups=d_inner, bias=True
         )
         self.out_proj = nn.Linear(d_inner, d_model, bias=False)
         self.norm = nn.LayerNorm(d_model)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         # x: (B, T, D)
         residual = x
         x = self.norm(x)
@@ -80,7 +79,7 @@ class SimpleMambaBlock(nn.Module):
 
         # Causal conv
         x = x.transpose(1, 2)  # (B, D_inner, T)
-        x = self.conv1d(x)[:, :, :residual.shape[1]]
+        x = self.conv1d(x)[:, :, : residual.shape[1]]
         x = x.transpose(1, 2)
 
         x = torch.silu(x) * torch.silu(z)
@@ -94,13 +93,13 @@ class SpatialMixingBlock(nn.Module):
     Approximates kNN message passing compute cost.
     """
 
-    def __init__(self, d_model: int):
+    def __init__(self, d_model: int) -> None:
         super().__init__()
         self.qkv = nn.Linear(d_model, d_model * 3, bias=False)
         self.out_proj = nn.Linear(d_model, d_model, bias=False)
         self.norm = nn.LayerNorm(d_model)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         # x: (B*T, P, D)
         residual = x
         x = self.norm(x)
@@ -128,7 +127,7 @@ class BOLDcastBenchmarkModel(nn.Module):
         hidden_dim: int = 256,
         n_temporal_layers: int = 8,
         n_spatial_layers: int = 4,
-    ):
+    ) -> None:
         super().__init__()
         self.n_spatial_tokens = n_spatial_tokens
         self.hidden_dim = hidden_dim
@@ -154,7 +153,7 @@ class BOLDcastBenchmarkModel(nn.Module):
         # Output head (forecasting)
         self.head = nn.Linear(hidden_dim, hidden_dim)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Args:
             x: (B, T, P, D) — batch, time, spatial tokens, hidden dim
@@ -180,7 +179,7 @@ class BOLDcastBenchmarkModel(nn.Module):
         return self.head(x)
 
 
-def setup_distributed():
+def setup_distributed() -> tuple[int, int, bool]:
     """Initialize DDP if running multi-GPU."""
     if "RANK" in os.environ:
         dist.init_process_group("nccl")
@@ -219,10 +218,14 @@ def run_benchmark(
     optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)
 
     # Synthetic data
-    def make_batch():
+    def make_batch() -> torch.Tensor:
         return torch.randn(
-            batch_size_per_gpu, seq_len, n_spatial_tokens, hidden_dim,
-            device=device, dtype=torch.bfloat16
+            batch_size_per_gpu,
+            seq_len,
+            n_spatial_tokens,
+            hidden_dim,
+            device=device,
+            dtype=torch.bfloat16,
         )
 
     model = model.to(torch.bfloat16)
@@ -282,16 +285,16 @@ def run_benchmark(
     )
 
     if rank == 0:
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"BOLDcast Throughput Benchmark ({n_gpus} GPU{'s' if n_gpus > 1 else ''})")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
         print(f"GPU: {gpu_name}")
         print(f"Config: {seq_len} TRs × {n_spatial_tokens} tokens × dim {hidden_dim}")
         print(f"Batch: {batch_size_per_gpu}/GPU × {n_gpus} GPUs = {effective_batch}")
         print(f"Step time: {avg_time:.1f} ± {std_time:.1f} ms")
         print(f"Throughput: {throughput_seq:.2f} seq/s | {throughput_trs:.0f} TRs/s")
         print(f"Peak memory: {peak_mem:.2f} GB")
-        print(f"{'='*60}\n")
+        print(f"{'=' * 60}\n")
 
     if is_distributed:
         dist.destroy_process_group()
@@ -299,7 +302,7 @@ def run_benchmark(
     return result
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description="BOLDcast throughput benchmark")
     parser.add_argument("--n_gpus", type=int, default=1)
     parser.add_argument("--seq_len", type=int, default=256)

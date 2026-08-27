@@ -65,8 +65,7 @@ def load_family_map(csv_path: Path) -> dict[str, str]:
         reader = csv.DictReader(fh)
         if reader.fieldnames is None or "Subject" not in reader.fieldnames:
             raise SystemExit(
-                "ERROR: Restricted CSV missing 'Subject' column "
-                f"(saw fields: {reader.fieldnames})."
+                f"ERROR: Restricted CSV missing 'Subject' column (saw fields: {reader.fieldnames})."
             )
         if "Family_ID" not in reader.fieldnames:
             raise SystemExit(

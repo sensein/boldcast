@@ -27,9 +27,7 @@ def synthetic_dtseries(tmp_path: Path) -> Path:
     n_lh_vertices, n_rh_vertices = 60, 60
 
     rng = np.random.default_rng(0)
-    data = rng.standard_normal(
-        (n_tr, n_lh_grayordinates + n_rh_grayordinates), dtype=np.float32
-    )
+    data = rng.standard_normal((n_tr, n_lh_grayordinates + n_rh_grayordinates), dtype=np.float32)
 
     bm_lh = cifti2_axes.BrainModelAxis.from_surface(
         vertices=np.arange(n_lh_grayordinates),
@@ -80,14 +78,10 @@ def synthetic_gifti_path_factory(
         verts, faces = mesh
         gii = nib.gifti.GiftiImage()
         gii.add_gifti_data_array(
-            nib.gifti.GiftiDataArray(
-                verts.astype(np.float32), intent="NIFTI_INTENT_POINTSET"
-            )
+            nib.gifti.GiftiDataArray(verts.astype(np.float32), intent="NIFTI_INTENT_POINTSET")
         )
         gii.add_gifti_data_array(
-            nib.gifti.GiftiDataArray(
-                faces.astype(np.int32), intent="NIFTI_INTENT_TRIANGLE"
-            )
+            nib.gifti.GiftiDataArray(faces.astype(np.int32), intent="NIFTI_INTENT_TRIANGLE")
         )
         out = tmp_path / f"{name}.surf.gii"
         nib.save(gii, str(out))
@@ -129,9 +123,7 @@ def synthetic_hcp_layout(tmp_path: Path) -> tuple[Path, list[str], list[str]]:
 
     for subject in subjects:
         for run in runs:
-            run_dir = (
-                hcp_root / subject / "MNINonLinear" / "Results" / run
-            )
+            run_dir = hcp_root / subject / "MNINonLinear" / "Results" / run
             run_dir.mkdir(parents=True, exist_ok=True)
             data = rng.standard_normal((n_tr, n_lh + n_rh), dtype=np.float32)
             img = nib.cifti2.Cifti2Image(data, header)

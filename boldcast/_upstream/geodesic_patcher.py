@@ -133,9 +133,7 @@ def _fps_one_hemisphere(
                 "Check that the input mesh is a valid closed surface "
                 "(e.g., 32k_fs_LR) with no isolated sub-meshes."
             )
-        sources, per_source_dists = _fps_dijkstra(
-            adj, n_patches_hem, first_source, cortex_indices
-        )
+        sources, per_source_dists = _fps_dijkstra(adj, n_patches_hem, first_source, cortex_indices)
         if lloyd_iters > 0:
             # Geodesic Lloyd: assignment uses Dijkstra distances throughout, so
             # patch boundaries respect the surface geometry during convergence.
@@ -145,13 +143,9 @@ def _fps_one_hemisphere(
             )
         per_vertex_assignment = _assign_to_nearest_source_dijkstra(per_source_dists)
     else:
-        sources = _fps_euclidean3d(
-            verts, n_patches_hem, first_source, cortex_indices
-        )
+        sources = _fps_euclidean3d(verts, n_patches_hem, first_source, cortex_indices)
         if lloyd_iters > 0:
-            sources = _lloyd_relax_euclidean(
-                verts, sources, cortex_indices, lloyd_iters
-            )
+            sources = _lloyd_relax_euclidean(verts, sources, cortex_indices, lloyd_iters)
         per_vertex_assignment = _assign_to_nearest_source_euclidean(verts, sources)
 
     result: np.ndarray = per_vertex_assignment[cortex_indices] + hemisphere_offset
@@ -160,9 +154,7 @@ def _fps_one_hemisphere(
 
 def _build_edge_graph(verts: np.ndarray, faces: np.ndarray) -> csr_matrix:
     """Sparse adjacency weighted by Euclidean edge length (symmetric)."""
-    edges = np.concatenate(
-        [faces[:, [0, 1]], faces[:, [1, 2]], faces[:, [2, 0]]], axis=0
-    )
+    edges = np.concatenate([faces[:, [0, 1]], faces[:, [1, 2]], faces[:, [2, 0]]], axis=0)
     edges = np.concatenate([edges, edges[:, ::-1]], axis=0)
     edges = np.unique(edges, axis=0)
     weights = np.linalg.norm(verts[edges[:, 0]] - verts[edges[:, 1]], axis=1)
@@ -236,9 +228,7 @@ def _fps_euclidean3d(
     return sources
 
 
-def _assign_to_nearest_source_euclidean(
-    verts: np.ndarray, sources: np.ndarray
-) -> np.ndarray:
+def _assign_to_nearest_source_euclidean(verts: np.ndarray, sources: np.ndarray) -> np.ndarray:
     diff = verts[None, :, :] - verts[sources][:, None, :]  # (n_sources, n_verts, 3)
     dists = np.linalg.norm(diff, axis=-1)
     out: np.ndarray = np.argmin(dists, axis=0).astype(np.int32)
@@ -336,9 +326,7 @@ def _lloyd_relax_geodesic(
         changed_mask = new_sources != sources
         changed_idx = np.where(changed_mask)[0]
         if changed_idx.size > 0:
-            new_dists = dijkstra(
-                adj, indices=new_sources[changed_idx].tolist(), directed=False
-            )
+            new_dists = dijkstra(adj, indices=new_sources[changed_idx].tolist(), directed=False)
             # scipy returns 1-D for a single source, 2-D for multiple.
             if new_dists.ndim == 1:
                 new_dists = new_dists[None, :]

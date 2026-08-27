@@ -101,12 +101,8 @@ def main() -> int:  # noqa: C901
         local_rank = 0
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    max_steps = (
-        args.max_steps if args.max_steps is not None else int(cfg.train.max_steps)
-    )
-    out_dir = Path(
-        args.out_dir if args.out_dir is not None else cfg.train.out_dir
-    )
+    max_steps = args.max_steps if args.max_steps is not None else int(cfg.train.max_steps)
+    out_dir = Path(args.out_dir if args.out_dir is not None else cfg.train.out_dir)
     if is_rank_zero():
         out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -124,10 +120,7 @@ def main() -> int:  # noqa: C901
 
     if is_rank_zero():
         print(f"[day5] reference subject={ref_subject}, run={ref_run}")
-        print(
-            f"[day5] train subjects: {len(train_subjects)}, "
-            f"heldout: {len(heldout_subjects)}"
-        )
+        print(f"[day5] train subjects: {len(train_subjects)}, heldout: {len(heldout_subjects)}")
 
     if args.dry_run:
         # Skip actual data loads + heavy construction; just confirm imports
@@ -152,18 +145,15 @@ def main() -> int:  # noqa: C901
     from boldcast.tokenize.knn import build_or_load_knn  # noqa: E402
 
     ref_path = str(cfg.data.dtseries_pattern).format(
-        subject=ref_subject, run=ref_run,
+        subject=ref_subject,
+        run=ref_run,
     )
     _, header = load_dtseries(ref_path)
     cortex_lh, cortex_rh = cortex_grayordinate_indices(header)
 
     surface_dir = str(cfg.data.surface_dir_template).format(subject=ref_subject)
-    lh_mesh = (
-        f"{surface_dir}/{ref_subject}.L.midthickness_MSMAll.32k_fs_LR.surf.gii"
-    )
-    rh_mesh = (
-        f"{surface_dir}/{ref_subject}.R.midthickness_MSMAll.32k_fs_LR.surf.gii"
-    )
+    lh_mesh = f"{surface_dir}/{ref_subject}.L.midthickness_MSMAll.32k_fs_LR.surf.gii"
+    rh_mesh = f"{surface_dir}/{ref_subject}.R.midthickness_MSMAll.32k_fs_LR.surf.gii"
 
     if is_rank_zero():
         print(f"[day5] loading patch assignment from {cfg.tokenize.patch_cache}")
@@ -218,7 +208,9 @@ def main() -> int:  # noqa: C901
     train_sampler: DistributedSampler[int] | None
     if is_distributed_run():
         train_sampler = DistributedSampler(
-            train_ds, shuffle=True, seed=int(cfg.seed),
+            train_ds,
+            shuffle=True,
+            seed=int(cfg.seed),
         )
     else:
         train_sampler = None
@@ -256,7 +248,7 @@ def main() -> int:  # noqa: C901
     ).to(device)
     n_params = sum(p.numel() for p in _demo_model.parameters())
     if is_rank_zero():
-        print(f"[day5]   params: {n_params/1e6:.3f} M")
+        print(f"[day5]   params: {n_params / 1e6:.3f} M")
     model = setup_model_for_ddp(
         _demo_model,
         find_unused_parameters=bool(cfg.ddp.find_unused_parameters),
@@ -324,9 +316,7 @@ def main() -> int:  # noqa: C901
                 cleanup_distributed()
             raise SystemExit(1)
         model_val_loss = history["val_loss"][-1]
-        baselines = compute_trivial_baselines(
-            val_loader, horizons, device, model=None
-        )
+        baselines = compute_trivial_baselines(val_loader, horizons, device, model=None)
         best_name = min(baselines, key=lambda k: baselines[k])
         best_val = baselines[best_name]
         improvement_pct = (best_val - model_val_loss) / best_val * 100.0

@@ -101,7 +101,7 @@ def main() -> int:
         type=float,
         default=None,
         help="Override cfg.train.lr. Default uses config "
-             "(canonical Day-4 run passes --lr 1e-3 + --max-steps 3000).",
+        "(canonical Day-4 run passes --lr 1e-3 + --max-steps 3000).",
     )
     args = p.parse_args()
 
@@ -120,24 +120,14 @@ def main() -> int:
     train_subjects = _read_subject_list(str(cfg.data.subjects_train_file))
     ref_subject = train_subjects[0]
     ref_run = cfg.data.runs[0]
-    ref_path = str(cfg.data.dtseries_pattern).format(
-        subject=ref_subject, run=ref_run
-    )
+    ref_path = str(cfg.data.dtseries_pattern).format(subject=ref_subject, run=ref_run)
     print(f"[day4] reference subject={ref_subject}, run={ref_run}")
     _, header = load_dtseries(ref_path)
     cortex_lh, cortex_rh = cortex_grayordinate_indices(header)
 
-    surface_dir = str(cfg.data.surface_dir_template).format(
-        subject=ref_subject
-    )
-    lh_mesh = (
-        f"{surface_dir}/{ref_subject}.L.midthickness_MSMAll."
-        "32k_fs_LR.surf.gii"
-    )
-    rh_mesh = (
-        f"{surface_dir}/{ref_subject}.R.midthickness_MSMAll."
-        "32k_fs_LR.surf.gii"
-    )
+    surface_dir = str(cfg.data.surface_dir_template).format(subject=ref_subject)
+    lh_mesh = f"{surface_dir}/{ref_subject}.L.midthickness_MSMAll.32k_fs_LR.surf.gii"
+    rh_mesh = f"{surface_dir}/{ref_subject}.R.midthickness_MSMAll.32k_fs_LR.surf.gii"
 
     print(f"[day4] loading patch assignment from {cfg.tokenize.patch_cache}")
     assignment = build_or_load_patches(
@@ -178,9 +168,7 @@ def main() -> int:
         stride=overfit_stride,
     )
     if len(ds) != 4:
-        raise SystemExit(
-            f"[day4] expected 4 windows in overfit dataset, got {len(ds)}"
-        )
+        raise SystemExit(f"[day4] expected 4 windows in overfit dataset, got {len(ds)}")
     loader = DataLoader(ds, batch_size=4, shuffle=False, num_workers=0)
 
     # Model with checkpointing on (matches canonical Day-3 / Day-5 regime).
@@ -197,7 +185,7 @@ def main() -> int:
         use_checkpoint=True,
     ).cuda()
     n_params = sum(p.numel() for p in model.parameters())
-    print(f"[day4]   params: {n_params/1e6:.3f} M")
+    print(f"[day4]   params: {n_params / 1e6:.3f} M")
 
     # Optimizer: cfg.train.lr (or --lr override), weight_decay=0 (ADR 0005 D6).
     lr_used = float(args.lr) if args.lr is not None else float(cfg.train.lr)
@@ -205,7 +193,7 @@ def main() -> int:
     optimizer = build_optimizer(
         model,
         lr=lr_used,
-        weight_decay=0.0,                          # OVERRIDE
+        weight_decay=0.0,  # OVERRIDE
         betas=(float(cfg.train.beta1), float(cfg.train.beta2)),
     )
     # Scheduler: override to constant LR (ADR 0005 D6).
@@ -245,9 +233,7 @@ def main() -> int:
     initial_window = sum(initial_slice) / len(initial_slice)
     final_window = sum(final_slice) / len(final_slice)
     ratio = final_window / initial_window if initial_window > 0 else float("inf")
-    print(
-        f"[day4] initial loss = {initial:.6f}  final loss = {final:.6f}"
-    )
+    print(f"[day4] initial loss = {initial:.6f}  final loss = {final:.6f}")
     print(
         f"[day4] first-{window}-mean = {initial_window:.6f}  "
         f"last-{window}-mean = {final_window:.6f}  ratio = {ratio:.4%}"

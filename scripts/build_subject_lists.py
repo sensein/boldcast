@@ -77,20 +77,14 @@ def has_all_runs(subj_dir: Path, runs: tuple[str, ...]) -> bool:
 def count_present_runs(subj_dir: Path, runs: tuple[str, ...]) -> int:
     """Return how many of the expected dtseries files are present."""
     results = subj_dir / "MNINonLinear" / "Results"
-    return sum(
-        (results / r / f"{r}{DTSERIES_SUFFIX}").is_file()
-        for r in runs
-    )
+    return sum((results / r / f"{r}{DTSERIES_SUFFIX}").is_file() for r in runs)
 
 
 def list_subject_dirs(hcp_root: Path) -> list[Path]:
     """Enumerate 6-digit numeric subject subdirectories under ``hcp_root``."""
     if not hcp_root.is_dir():
         raise SystemExit(f"HCP root does not exist or is not a directory: {hcp_root}")
-    return sorted(
-        p for p in hcp_root.iterdir()
-        if p.is_dir() and SUBJECT_RE.match(p.name)
-    )
+    return sorted(p for p in hcp_root.iterdir() if p.is_dir() and SUBJECT_RE.match(p.name))
 
 
 def filter_eligible(
@@ -127,11 +121,13 @@ def per_run_presence(
     max_workers: int = 32,
 ) -> tuple[dict[str, int], list[tuple[bool, ...]]]:
     """For each run, count subjects that have it; also return per-subject flags."""
+
     def subject_flags(subj: Path) -> tuple[bool, ...]:
         return tuple(
             (subj / "MNINonLinear" / "Results" / r / f"{r}{DTSERIES_SUFFIX}").is_file()
             for r in runs
         )
+
     with ThreadPoolExecutor(max_workers=max_workers) as pool:
         flags = list(pool.map(subject_flags, subjects))
     counts = {r: 0 for r in runs}
@@ -158,24 +154,45 @@ def write_list(path: Path, ids: list[str], label: str) -> None:
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    p.add_argument("--check-only", action="store_true",
-                   help="Print availability counts and exit; do not write lists.")
-    p.add_argument("--modality", choices=("3T", "7T"), default="7T",
-                   help=("Which HCP REST modality to sample from. 3T uses 4 "
-                         "REST runs (REST1/2 LR/RL, TR=0.72s); 7T uses the 4 "
-                         "actually-pulled REST runs (REST1_PA, REST2_AP, "
-                         "REST3_PA, REST4_AP, TR=1.0s). Default: 7T."))
+    p.add_argument(
+        "--check-only",
+        action="store_true",
+        help="Print availability counts and exit; do not write lists.",
+    )
+    p.add_argument(
+        "--modality",
+        choices=("3T", "7T"),
+        default="7T",
+        help=(
+            "Which HCP REST modality to sample from. 3T uses 4 "
+            "REST runs (REST1/2 LR/RL, TR=0.72s); 7T uses the 4 "
+            "actually-pulled REST runs (REST1_PA, REST2_AP, "
+            "REST3_PA, REST4_AP, TR=1.0s). Default: 7T."
+        ),
+    )
     p.add_argument("--n-train", type=int, default=16)
     p.add_argument("--n-heldout", type=int, default=8)
-    p.add_argument("--seed", type=int, default=0,
-                   help="RNG seed for deterministic random sample (default: 0).")
-    p.add_argument("--hcp-root", type=Path, default=DEFAULT_HCP_ROOT,
-                   help=f"HCP1200 root directory (default: {DEFAULT_HCP_ROOT}).")
-    p.add_argument("--repo-root", type=Path,
-                   default=Path(__file__).resolve().parent.parent,
-                   help="Repo root; subjects_*.txt are written under repo-root/configs/.")
-    p.add_argument("--max-workers", type=int, default=32,
-                   help="Parallel stat() workers for the availability scan.")
+    p.add_argument(
+        "--seed", type=int, default=0, help="RNG seed for deterministic random sample (default: 0)."
+    )
+    p.add_argument(
+        "--hcp-root",
+        type=Path,
+        default=DEFAULT_HCP_ROOT,
+        help=f"HCP1200 root directory (default: {DEFAULT_HCP_ROOT}).",
+    )
+    p.add_argument(
+        "--repo-root",
+        type=Path,
+        default=Path(__file__).resolve().parent.parent,
+        help="Repo root; subjects_*.txt are written under repo-root/configs/.",
+    )
+    p.add_argument(
+        "--max-workers",
+        type=int,
+        default=32,
+        help="Parallel stat() workers for the availability scan.",
+    )
     return p.parse_args()
 
 
@@ -189,22 +206,24 @@ def main() -> int:
     print("Counting 3T REST availability ...", file=sys.stderr)
     counts_3t = run_counts(subjects, RUNS_3T, max_workers=args.max_workers)
     eligible_3t = [s for s, c in zip(subjects, counts_3t) if c == len(RUNS_3T)]
-    print(f"  Distribution (n_runs_present / 4): {histogram(counts_3t, len(RUNS_3T))}",
-          file=sys.stderr)
-    print(f"  Subjects with all 4 3T REST dtseries: {len(eligible_3t)}",
-          file=sys.stderr)
+    print(
+        f"  Distribution (n_runs_present / 4): {histogram(counts_3t, len(RUNS_3T))}",
+        file=sys.stderr,
+    )
+    print(f"  Subjects with all 4 3T REST dtseries: {len(eligible_3t)}", file=sys.stderr)
 
     print("Counting 7T REST availability ...", file=sys.stderr)
     per_run_7t, flags_7t = per_run_presence(subjects, RUNS_7T, max_workers=args.max_workers)
     counts_7t = [sum(f) for f in flags_7t]
     eligible_7t = [s for s, c in zip(subjects, counts_7t) if c == len(RUNS_7T)]
-    print(f"  Distribution (n_runs_present / 8): {histogram(counts_7t, len(RUNS_7T))}",
-          file=sys.stderr)
+    print(
+        f"  Distribution (n_runs_present / 8): {histogram(counts_7t, len(RUNS_7T))}",
+        file=sys.stderr,
+    )
     print("  Per-run 7T REST availability:", file=sys.stderr)
     for r in RUNS_7T:
         print(f"    {r}: {per_run_7t[r]}", file=sys.stderr)
-    print(f"  Subjects with all 8 7T REST dtseries: {len(eligible_7t)}",
-          file=sys.stderr)
+    print(f"  Subjects with all 8 7T REST dtseries: {len(eligible_7t)}", file=sys.stderr)
 
     if args.check_only:
         return 0
@@ -217,8 +236,9 @@ def main() -> int:
         # Recompute eligibility against the 4 actually-pulled 7T runs (not 8).
         counts_demo = run_counts(subjects, runs, max_workers=args.max_workers)
         eligible = [s for s, c in zip(subjects, counts_demo) if c == len(runs)]
-        print(f"Subjects with all {len(runs)} 7T-demo REST dtseries: "
-              f"{len(eligible)}", file=sys.stderr)
+        print(
+            f"Subjects with all {len(runs)} 7T-demo REST dtseries: {len(eligible)}", file=sys.stderr
+        )
     n_total = args.n_train + args.n_heldout
     if len(eligible) < n_total:
         print(

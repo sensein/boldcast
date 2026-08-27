@@ -54,10 +54,10 @@ from omegaconf import OmegaConf
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--config", type=str, default="configs/demo.yaml")
-    p.add_argument("--subject", type=str, required=True, help="HCP subject ID (zero-padded numeric string)")
     p.add_argument(
-        "--task", type=str, required=True, help="Run name, e.g. rfMRI_REST1_7T_PA"
+        "--subject", type=str, required=True, help="HCP subject ID (zero-padded numeric string)"
     )
+    p.add_argument("--task", type=str, required=True, help="Run name, e.g. rfMRI_REST1_7T_PA")
     p.add_argument("--out-fig", type=str, default="figures/day1_patches.png")
     p.add_argument("--out-json", type=str, default="results/day1_validate.json")
     p.add_argument(
@@ -97,9 +97,7 @@ def main() -> int:
     cfg = OmegaConf.load(args.config)
     OmegaConf.resolve(cfg)
 
-    dtseries_path = cfg.data.dtseries_pattern.format(
-        subject=args.subject, run=args.task
-    )
+    dtseries_path = cfg.data.dtseries_pattern.format(subject=args.subject, run=args.task)
     surface_dir = cfg.data.surface_dir_template.format(subject=args.subject)
     msm_suffix = "" if args.surface_msm == "none" else f"_{args.surface_msm}"
     lh_mesh = (
@@ -140,18 +138,13 @@ def main() -> int:
         f"min={int(sizes.min())}, max={int(sizes.max())}"
     )
 
-    patcher = Patcher(
-        torch.from_numpy(assignment), n_patches=cfg.tokenize.n_patches_cortex
-    )
+    patcher = Patcher(torch.from_numpy(assignment), n_patches=cfg.tokenize.n_patches_cortex)
     x = torch.from_numpy(cortex_data)
 
     t0 = time.perf_counter()
     patch_means = patcher.forward(x)
     t_tokenize = time.perf_counter() - t0
-    print(
-        f"[day1] tokenize {tuple(x.shape)} -> {tuple(patch_means.shape)} "
-        f"in {t_tokenize:.3f} s"
-    )
+    print(f"[day1] tokenize {tuple(x.shape)} -> {tuple(patch_means.shape)} in {t_tokenize:.3f} s")
 
     # Float32 round-trip — realistic pipeline cost. On raw HCP BOLD (O(5000)),
     # the residual is dominated by index_add_ accumulation rounding:
@@ -168,9 +161,7 @@ def main() -> int:
     residual_f64 = (pm64_1 - pm64_2).abs().max().item()
 
     print(f"[day1] round-trip residual (float32, raw scale): {residual_f32:.3e}")
-    print(
-        f"[day1] round-trip residual (float64, algo-correctness): {residual_f64:.3e}"
-    )
+    print(f"[day1] round-trip residual (float64, algo-correctness): {residual_f64:.3e}")
 
     Path(args.out_json).parent.mkdir(parents=True, exist_ok=True)
     with open(args.out_json, "w") as f:
@@ -265,7 +256,10 @@ def _render_patch_figure(
         ax = fig.add_subplot(1, 2, col + 1, projection="3d")
         triangles = verts[faces]
         pc = Poly3DCollection(
-            triangles, facecolors=face_colors, linewidths=0, shade=True,
+            triangles,
+            facecolors=face_colors,
+            linewidths=0,
+            shade=True,
         )
         pc.set_edgecolor(face_colors)  # match edges to faces to hide mesh lines
         ax.add_collection3d(pc)

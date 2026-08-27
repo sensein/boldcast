@@ -91,7 +91,7 @@ def test_boldcast_demo_param_count_in_budget() -> None:
     )
     n_params = sum(p.numel() for p in m.parameters())
     assert 0.5e6 <= n_params <= 1.5e6, (
-        f"param count {n_params/1e6:.3f}M outside Day-3 budget [0.5M, 1.5M]"
+        f"param count {n_params / 1e6:.3f}M outside Day-3 budget [0.5M, 1.5M]"
     )
 
 
@@ -151,7 +151,11 @@ def test_baseline_schaefer_param_count_in_budget() -> None:
 
     adjacency = _identity_adjacency(n_patches=400, k=8)
     m = BaselineSchaefer400(
-        d_in=1, d_model=128, n_layers=4, k_neighbors=8, adjacency=adjacency,
+        d_in=1,
+        d_model=128,
+        n_layers=4,
+        k_neighbors=8,
+        adjacency=adjacency,
         horizons=(1, 5),
     )
     n_params = sum(p.numel() for p in m.parameters())
@@ -166,7 +170,11 @@ def test_baseline_schaefer_forward_on_cuda() -> None:
         pytest.skip("CUDA not available")
     adjacency = _identity_adjacency(n_patches=400, k=8).cuda()
     m = BaselineSchaefer400(
-        d_in=1, d_model=128, n_layers=4, k_neighbors=8, adjacency=adjacency,
+        d_in=1,
+        d_model=128,
+        n_layers=4,
+        k_neighbors=8,
+        adjacency=adjacency,
         horizons=(1, 5),
     ).cuda()
     x = torch.randn(2, 256, 400, 1, device="cuda")

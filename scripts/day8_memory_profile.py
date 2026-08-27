@@ -89,8 +89,12 @@ def _measure_config(
     # --- forward only ---
     torch.cuda.reset_peak_memory_stats(device=device)
     model.eval()
-    with torch.no_grad(), torch.amp.autocast(  # type: ignore[attr-defined,unused-ignore]
-        device_type="cuda", dtype=torch.bfloat16,
+    with (
+        torch.no_grad(),
+        torch.amp.autocast(  # type: ignore[attr-defined,unused-ignore]
+            device_type="cuda",
+            dtype=torch.bfloat16,
+        ),
     ):
         _ = model(x)
     torch.cuda.synchronize(device=device)
@@ -103,7 +107,8 @@ def _measure_config(
     opt = torch.optim.AdamW(model.parameters(), lr=1e-4)
     opt.zero_grad(set_to_none=True)
     with torch.amp.autocast(  # type: ignore[attr-defined,unused-ignore]
-        device_type="cuda", dtype=torch.bfloat16,
+        device_type="cuda",
+        dtype=torch.bfloat16,
     ):
         out = model(x)
         # Match Day-5 loss shape contract: out is (B, T, P, H, d_in); pool to scalar.
@@ -171,10 +176,14 @@ def main() -> int:
     p.add_argument("--batch-size", type=int, default=2)
     p.add_argument("--knn-k", type=int, default=8)
     p.add_argument(
-        "--out-json", type=Path, default=Path("results/day8_memory.json"),
+        "--out-json",
+        type=Path,
+        default=Path("results/day8_memory.json"),
     )
     p.add_argument(
-        "--out-figure", type=Path, default=Path("figures/day8_memory_scaling.png"),
+        "--out-figure",
+        type=Path,
+        default=Path("figures/day8_memory_scaling.png"),
     )
     p.add_argument(
         "--dry-run",
@@ -186,15 +195,17 @@ def main() -> int:
     configs: list[dict[str, int | bool]] = []
     for t in args.t_sweep:
         for ckpt in (False, True):
-            configs.append({
-                "T": int(t),
-                "P": int(args.n_patches),
-                "d_model": int(args.d_model),
-                "n_layers": int(args.n_layers),
-                "batch_size": int(args.batch_size),
-                "k_neighbors": int(args.knn_k),
-                "use_checkpoint": bool(ckpt),
-            })
+            configs.append(
+                {
+                    "T": int(t),
+                    "P": int(args.n_patches),
+                    "d_model": int(args.d_model),
+                    "n_layers": int(args.n_layers),
+                    "batch_size": int(args.batch_size),
+                    "k_neighbors": int(args.knn_k),
+                    "use_checkpoint": bool(ckpt),
+                }
+            )
 
     if args.dry_run:
         print(f"[day8] dry-run: would measure {len(configs)} configs")

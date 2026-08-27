@@ -32,10 +32,7 @@ class Patcher(torch.nn.Module):
         super().__init__()
         if patch_assignment.dtype != torch.long:
             patch_assignment = patch_assignment.long()
-        if (
-            patch_assignment.min().item() < 0
-            or patch_assignment.max().item() >= n_patches
-        ):
+        if patch_assignment.min().item() < 0 or patch_assignment.max().item() >= n_patches:
             raise ValueError(
                 f"patch_assignment values out of range [0, {n_patches}): "
                 f"min={patch_assignment.min().item()}, "
@@ -68,11 +65,8 @@ class Patcher(torch.nn.Module):
         counts = cast(torch.Tensor, self.counts)
         if x.ndim != 2 or x.shape[1] != assignment.shape[0]:
             raise ValueError(
-                f"expected x of shape (T, {assignment.shape[0]}); "
-                f"got {tuple(x.shape)}"
+                f"expected x of shape (T, {assignment.shape[0]}); got {tuple(x.shape)}"
             )
-        sums = torch.zeros(
-            x.shape[0], self.n_patches, dtype=x.dtype, device=x.device
-        )
+        sums = torch.zeros(x.shape[0], self.n_patches, dtype=x.dtype, device=x.device)
         sums.index_add_(1, assignment, x)
         return sums / counts.to(x.dtype)

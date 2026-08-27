@@ -94,9 +94,7 @@ def build_or_load_knn(
     cortex_rh_arr = np.asarray(cortex_indices_rh, dtype=np.int64)
     # Stack all cortex vertices in the same order as patch_assignment was
     # built in Day-1 (LH then RH).
-    cortex_coords = np.concatenate(
-        [verts_lh[cortex_lh_arr], verts_rh[cortex_rh_arr]], axis=0
-    )
+    cortex_coords = np.concatenate([verts_lh[cortex_lh_arr], verts_rh[cortex_rh_arr]], axis=0)
     if cortex_coords.shape[0] != assignment_arr.shape[0]:
         raise ValueError(
             f"cortex vertex count {cortex_coords.shape[0]} does not match "
@@ -123,9 +121,7 @@ def build_or_load_knn(
     return adjacency_out
 
 
-def _compute_knn_from_centroids(
-    centroids: NDArray[np.floating], k: int
-) -> NDArray[np.int64]:
+def _compute_knn_from_centroids(centroids: NDArray[np.floating], k: int) -> NDArray[np.int64]:
     """For each row of ``centroids``, return the ``k`` nearest rows (including
     self at index 0) by Euclidean distance."""
     diff = centroids[:, None, :] - centroids[None, :, :]
