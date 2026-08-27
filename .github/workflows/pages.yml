@@ -9,6 +9,11 @@ on:
       - 'mkdocs.yml'
       - '.github/workflows/pages.yml'
   workflow_dispatch:
+    inputs:
+      allow_non_main_sha:
+        description: "Deploy even if the checked-out SHA is not on main (previews only)"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -25,10 +30,30 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        # fetch-depth: 0 so the ancestry guard below can run merge-base.
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # Force-pushing rewritten history orphans queued runs on pre-rewrite
+      # SHAs, and those runs cannot be cancelled (409) or deleted (403) — two
+      # from the 2026-08-26 scrub are still sitting in the queue. If one ever
+      # starts, it would rebuild and redeploy the pre-scrub site. This makes
+      # that a build failure instead of a silent regression.
+      - name: Refuse to deploy a SHA that is not on main
+        if: ${{ github.event.inputs.allow_non_main_sha != 'true' }}
+        run: |
+          git fetch --no-tags origin main
+          if git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "OK: $GITHUB_SHA is an ancestor of origin/main."
+          else
+            echo "::error::Refusing to build the Pages site from $GITHUB_SHA -- not an ancestor of origin/main."
+            echo "If this is an intentional preview, re-run via workflow_dispatch with allow_non_main_sha=true."
+            exit 1
+          fi
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: '3.11'
           cache: pip
@@ -49,7 +74,7 @@ jobs:
           ls site/docs/ | head -10
 
       - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: site
 
@@ -62,4 +87,4 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5

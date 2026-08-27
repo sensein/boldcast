@@ -5,6 +5,7 @@ CLAUDE.md
 cache/*
 !cache/.gitkeep
 data/*
+!data/README.md
 results/*
 !results/.gitkeep
 figures/*
