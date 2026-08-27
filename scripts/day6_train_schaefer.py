@@ -247,7 +247,8 @@ def main() -> int:  # noqa: C901
 
     # Acceptance criterion #2: held-out val loss beats strongest trivial
     # baseline by ≥15% (Cohen's large-effect R²; see
-    # docs/superpowers/specs/2026-05-24-acceptance-gate-baseline-relative-design.md).
+    # docs/superpowers/specs/2026-05-24-acceptance-gate-baseline-relative-design.md,
+    # an internal design note that is not published).
     if is_rank_zero():
         if not history["val_loss"]:
             print(

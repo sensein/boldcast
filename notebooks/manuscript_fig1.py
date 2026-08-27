@@ -14,9 +14,10 @@ Run with:
 Panel inventory:
 - A: BOLDcast architecture overview — fMRI → Tokenizer → Mamba⊗kNN →
      {Forecast, Stimulus} heads with sMRI·FiLM and CLIP side-inputs.
-     Adapted from talks/2026-05-14-seed-pitch/build_figures.py
-     :fig_architecture() with the MIT-Red palette swapped for the K99
-     neutral grant palette. (Schematic family.)
+     Adapted from fig_architecture() in the retired seed-pitch figure
+     builder (talks/, removed in the 2026-08 docs cleanup), with the
+     MIT-Red palette swapped for the K99 neutral grant palette.
+     (Schematic family.)
 - B: 1,024 geodesic-patch sizes histogram + round-trip parity annotation
      (Distribution family).
 - C: Day-5 training loss curve + trivial-baseline reference lines
@@ -129,8 +130,9 @@ def load_panel_data() -> dict[str, object]:
 def panel_a_architecture_overview() -> None:
     """T-shape architecture diagram for K99 Figure 1A.
 
-    Adapted from talks/2026-05-14-seed-pitch/build_figures.py:fig_architecture
-    with the MIT-Red palette swapped for the neutral grant palette
+    Adapted from fig_architecture() in the retired seed-pitch figure builder
+    (talks/, removed in the 2026-08 docs cleanup), with the MIT-Red palette
+    swapped for the neutral grant palette
     (PRIMARY blue, SECONDARY gray, ACCENT warm red for side-inputs).
     Same legend: solid = shipped (Phase 1, Days 1–3); dashed = Phase 2
     (funded, infrastructure ready); thin/no-fill border = external/frozen

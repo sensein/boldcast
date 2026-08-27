@@ -4,7 +4,8 @@ Importable without ``brainmarks`` or ``mamba-ssm``: contains only the input
 transform and embedding-pooling logic, so it is unit-testable in the dev venv.
 The brainmarks/model-coupled registration lives in ``brainmarks_plugin/``.
 
-See docs/superpowers/specs/2026-05-30-brainmarks-adapter-design.md
+Design rationale: ``docs/superpowers/specs/2026-05-30-brainmarks-adapter-design.md``
+(internal design note, not published).
 """
 
 from __future__ import annotations

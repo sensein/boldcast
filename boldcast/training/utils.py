@@ -75,7 +75,8 @@ def beats_best_baseline(
        the upper-middle of this range.
 
     See ``docs/superpowers/specs/2026-05-24-acceptance-gate-baseline-relative-design.md``
-    for the full rationale and migration history.
+    (internal design note, not published) for the full rationale and
+    migration history.
 
     Parameters
     ----------
