@@ -1,5 +1,7 @@
 # BOLDcast
 
+[![CI](https://github.com/sensein/boldcast/actions/workflows/ci.yml/badge.svg)](https://github.com/sensein/boldcast/actions/workflows/ci.yml)
+
 Atlas-free, surface-based hybrid-Mamba foundation model for joint
 stimulus–brain latent state tracking from naturalistic fMRI.
 
@@ -35,10 +37,25 @@ training uses the micromamba env instead).
 
 ### Daily dev gates
 
+These are exactly what `.github/workflows/ci.yml` runs, in the same
+order, so a clean local run means a green CI run:
+
 ```bash
-.venv/bin/pytest tests/
+.venv/bin/ruff check boldcast/ tests/ scripts/ benchmarks/
+.venv/bin/ruff format --check boldcast/ tests/ scripts/ benchmarks/
 .venv/bin/mypy --strict boldcast/
-.venv/bin/ruff check boldcast/ tests/ scripts/
+.venv/bin/pytest
+```
+
+`ruff format` is the formatter (there is no separate black step), and
+`pytest` picks up `-m 'not gpu'` from `pyproject.toml` addopts, so
+gpu-marked tests are skipped on a login node. Run those on a compute
+node with `.venv/bin/pytest -m gpu` under the micromamba env.
+
+Optionally install the same checks as a pre-commit hook:
+
+```bash
+.venv/bin/pre-commit install
 ```
 
 No env activation. mypy comments use
