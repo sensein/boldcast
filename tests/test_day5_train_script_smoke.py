@@ -2,6 +2,11 @@
 
 Doesn't need CUDA or HCP data — verifies argparse + import path + that
 the script exits cleanly in --dry-run mode.
+
+One exception: --dry-run still resolves the config far enough to read the
+subject-list files it names, and those are gitignored (real HCP subject
+IDs, DUA), so the dry-run case is skipped where they are absent — notably
+in CI. See the skipif below.
 """
 
 from __future__ import annotations
@@ -10,10 +15,24 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SCRIPT = REPO_ROOT / "scripts" / "day5_train_boldcast.py"
 
+# Named by configs/demo.yaml data.subjects_train_file. Gitignored, so present
+# on ORCD and on a dev checkout that copied it, absent on a GitHub runner.
+SUBJECT_LIST = REPO_ROOT / "configs" / "subjects_train_familydisjoint.txt"
 
+
+@pytest.mark.skipif(
+    not SUBJECT_LIST.exists(),
+    reason=(
+        f"needs {SUBJECT_LIST.name}, which is gitignored (real HCP subject IDs, "
+        "DUA) and so is absent in CI. Regenerate with "
+        "scripts/build_family_disjoint_splits.py or copy it between clusters."
+    ),
+)
 def test_day5_script_dry_run_completes(tmp_path: Path, script_env: dict[str, str]) -> None:
     """--dry-run should construct argparse + verify imports without loading data."""
     result = subprocess.run(
