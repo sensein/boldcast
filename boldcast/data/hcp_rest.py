@@ -41,7 +41,8 @@ class HCPRestingDataset(Dataset[dict[str, Any]]):
     Parameters
     ----------
     subjects : list[str]
-        HCP subject IDs (e.g. ``["100307", "115825"]``).
+        HCP subject IDs, as zero-padded numeric strings
+        (e.g. ``["<subject-a>", "<subject-b>"]``).
     runs : list[str]
         Run names matching ``dtseries_pattern`` placeholders
         (e.g. ``["rfMRI_REST1_7T_PA", "rfMRI_REST2_7T_AP"]``).

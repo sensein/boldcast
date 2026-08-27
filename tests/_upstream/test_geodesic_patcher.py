@@ -165,7 +165,7 @@ def test_no_empty_patches_when_cortex_excludes_some_mesh_vertices(
     Without restricting FPS source picks to cortex_indices, sources can land on
     excluded ("medial wall") vertices and produce empty patches after subsetting
     to grayordinates. This test would have caught the empty-patch bug surfaced
-    by the Day-1 real-HCP validation on subject 115825.
+    by the Day-1 real-HCP validation on a single held-out subject.
     """
     n_lh = synthetic_mesh_lh[0].shape[0]
     n_rh = synthetic_mesh_rh[0].shape[0]

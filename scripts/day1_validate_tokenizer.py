@@ -54,7 +54,7 @@ from omegaconf import OmegaConf
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--config", type=str, default="configs/demo.yaml")
-    p.add_argument("--subject", type=str, required=True, help="HCP subject ID, e.g. 100307")
+    p.add_argument("--subject", type=str, required=True, help="HCP subject ID (zero-padded numeric string)")
     p.add_argument(
         "--task", type=str, required=True, help="Run name, e.g. rfMRI_REST1_7T_PA"
     )
