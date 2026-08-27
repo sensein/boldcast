@@ -16,9 +16,6 @@ figures/*
 *.pth
 *.ckpt
 
-# Local configs
-configs/local.yaml
-
 # Personal working docs (proposals, drafts, K99 prelim outline once it
 # moves to the formal destination). Committed docs live under docs/methods.md,
 # docs/10_day_plan.md, docs/adr/, etc. — see Yibei before adding new tracked
@@ -40,9 +37,6 @@ docs/adr/0008-phenotype-claims-gated-on-film-ablation.md
 # regenerate via scripts/build_subject_lists.py + build_family_disjoint_splits.py
 # or copy manually between clusters).
 configs/subjects_*.txt
-
-# Rendered talk PDF (contains pre-scrub content; re-export from seed_pitch.md)
-talks/2026-05-14-seed-pitch/seed_pitch.pdf
 
 # SLURM logs
 logs/
@@ -261,21 +255,3 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 
-# Unpopulated placeholders kept locally as scaffolding. Force-add (git add -f)
-# or drop the rule here once one of these actually has content.
-scripts/train.py
-scripts/evaluate.py
-scripts/tokenize_cifti.py
-scripts/cache_stimulus_embeddings.py
-scripts/export_cifti_maps.py
-tests/test_alignment.py
-tests/test_data_loading.py
-tests/test_model.py
-configs/base.yaml
-configs/hcp_7t.yaml
-configs/cneuromod.yaml
-configs/ablations/roi_baseline.yaml
-configs/ablations/transformer_baseline.yaml
-configs/ablations/no_stimulus.yaml
-configs/ablations/no_smri.yaml
-configs/ablations/fir_fallback.yaml
