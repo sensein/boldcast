@@ -4,7 +4,7 @@
 **Date:** 2026-05-11
 **Supersedes:** N/A
 **Related:** ADR 0004 (Day 3 model), `docs/methods.md` "Training Objectives",
-[`docs/superpowers/specs/2026-05-11-day4-training-loop-design.md`](../superpowers/specs/2026-05-11-day4-training-loop-design.md)
+`docs/superpowers/specs/2026-05-11-day4-training-loop-design.md` (not published)
 
 ## Context
 

@@ -33,5 +33,3 @@ What was rejected, and why?
 - [0004 — Day-3 model architecture](0004-day3-model-architecture.md)
 - [0005 — Day-4 training loop](0005-day4-training-loop.md)
 - [0006 — Day-5 DDP](0006-day5-ddp.md)
-- [0007 — Subcortical/cerebellar tokens gated on ablation](0007-subcortex-tokens-gated-on-ablation.md)
-- [0008 — Phenotype/trait claims gated on FiLM-ablation confound check](0008-phenotype-claims-gated-on-film-ablation.md)

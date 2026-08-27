@@ -6,8 +6,8 @@ repo_name: sensein/boldcast
 edit_uri: edit/main/docs/
 
 docs_dir: docs
-# Build into site/docs so the GH-Actions workflow can layer /talks/, /index.html,
-# and .nojekyll on top into the final ./site/ deploy artifact.
+# Build into site/docs so the GH-Actions workflow can layer /index.html and
+# .nojekyll on top into the final ./site/ deploy artifact.
 site_dir: site/docs
 use_directory_urls: true
 
@@ -27,10 +27,7 @@ theme:
 nav:
   - Home: index.md
   - Methods: methods.md
-  - Architecture: architecture.md
   - 10-day plan: 10_day_plan.md
-  - Data preparation: data_preparation.md
-  - ORCD benchmarks: orcd_benchmarks.md
   - Architecture Decision Records:
     - Overview: adr/README.md
     - 0001 · Deterministic, not variational: adr/0001-deterministic-not-variational.md
@@ -40,7 +37,9 @@ nav:
     - 0005 · Day-4 training loop: adr/0005-day4-training-loop.md
     - 0006 · Day-5 DDP: adr/0006-day5-ddp.md
 
-# Don't publish in-progress planning notes or the seed-grant proposal.
+# Keep in-progress planning notes, the seed-grant proposal, and gated ADRs off
+# the site. These paths are also gitignored: exclude_docs only controls the
+# Pages build, and this repo is public, so untracking is what keeps them private.
 exclude_docs: |
   superpowers/
   proposal.md

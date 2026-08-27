@@ -6,10 +6,7 @@ stimulus–brain latent state tracking from naturalistic fMRI.
 ## Quickstart
 
 - [Methods](methods.md) — architecture spec, training objectives, eval protocols
-- [Architecture](architecture.md) — model details
 - [10-day plan](10_day_plan.md) — demo deliverable plan
-- [Data preparation](data_preparation.md) — HCP / CNeuroMod loaders + caching
-- [ORCD benchmarks](orcd_benchmarks.md) — Day-3 measurements on H200
 
 ## Architecture Decision Records
 
@@ -24,10 +21,6 @@ rationale.
 | [0004](adr/0004-day3-model-architecture.md) | Day-3 model architecture |
 | [0005](adr/0005-day4-training-loop.md) | Day-4 training loop |
 | [0006](adr/0006-day5-ddp.md) | Day-5 DDP |
-
-## Talks
-
-The seed-grant pitch deck and future talks live at [../talks/](../talks/).
 
 ## Source
 

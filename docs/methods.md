@@ -272,7 +272,7 @@ task labels, which is a forward inference [Poldrack 2006].
 
 This document specifies the full proposed system. The 10-day demo plan in
 [`docs/10_day_plan.md`](10_day_plan.md) exercises a strict subset to produce
-a single defensible headline result (subject fingerprinting on HCP 3T rsfMRI
+a single defensible headline result (subject fingerprinting on HCP 7T rsfMRI
 vs. a Schaefer-400 ROI matched-architecture baseline). The demo is therefore
 infrastructure validation (atlas-free tokenizer round-trip; multi-GPU Mamba
 training pipeline; frozen-backbone retrieval eval) rather than evidence of

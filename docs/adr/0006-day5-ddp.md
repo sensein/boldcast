@@ -3,8 +3,7 @@
 **Status:** Accepted
 **Date:** 2026-05-13
 **Supersedes:** N/A
-**Related:** ADR 0005 (Day 4 training loop), `docs/methods.md` "Training Phases",
-[`docs/superpowers/specs/at-the-same-time-resilient-clock.md`](../superpowers/specs/at-the-same-time-resilient-clock.md)
+**Related:** ADR 0005 (Day 4 training loop), `docs/methods.md` "Training Objectives"
 
 ## Context
 

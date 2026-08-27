@@ -15,7 +15,7 @@ The prose spec leaves three implementation-level choices unresolved:
 
 1. **File layout.** The Day 1 plan writes file paths as
    `boldcast/io/cifti.py` and `boldcast/tokenize/geodesic.py`, but
-   [`boldcast/_upstream/README.md`](../../boldcast/_upstream/README.md)
+   [`boldcast/_upstream/README.md`](https://github.com/sensein/boldcast/blob/main/boldcast/_upstream/README.md)
    says CIFTI I/O and the geodesic patcher must live under
    `boldcast/_upstream/` and be held to nobrainer-grade standards
    (no internal imports, full type hints, NumPy docstrings, isolated
@@ -26,7 +26,7 @@ The prose spec leaves three implementation-level choices unresolved:
    (heat-method geodesics via `potpourri3d` or `pygeodesic`) was raised
    but not committed.
 3. **Test fixtures under HCP DUA.** Yibei holds the WU-Minn HCP Data Use
-   Agreement; Claude does not. Per [`CLAUDE.md`](../../CLAUDE.md),
+   Agreement; Claude does not. Per the project's `CLAUDE.md`,
    Claude must never read `.dtseries.nii`, `.gii`, or
    `Restricted_*.csv` files. Tests still need to exercise CIFTI I/O,
    FPS, and round-trip end-to-end.
@@ -196,7 +196,7 @@ companion. Claude never executes it.
 
 - [`docs/10_day_plan.md`](../10_day_plan.md) §"Day 1 — CIFTI tokenizer"
 - [`docs/methods.md`](../methods.md) §"Atlas-Free CIFTI Tokenization"
-- [`boldcast/_upstream/README.md`](../../boldcast/_upstream/README.md)
-- [`CLAUDE.md`](../../CLAUDE.md) §"HCP Data Use Agreement"
+- [`boldcast/_upstream/README.md`](https://github.com/sensein/boldcast/blob/main/boldcast/_upstream/README.md)
+- `CLAUDE.md` §"HCP Data Use Agreement" (local-only; not distributed)
 - Crane, K., Weischedel, C., Wardetzky, M. (2013). Geodesics in heat.
   *ACM Trans. Graph.* 32(5).
