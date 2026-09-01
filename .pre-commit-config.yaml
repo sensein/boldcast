@@ -8,6 +8,13 @@ repos:
       - id: ruff
         args: [--fix]
       - id: ruff-format
+  - repo: local
+    hooks:
+      - id: public-hygiene
+        name: public-repository rules
+        entry: python scripts/check_public_hygiene.py
+        language: system
+        pass_filenames: false
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:

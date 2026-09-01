@@ -44,6 +44,11 @@ jobs:
               "pyyaml" --python .venv/bin/python
           uv pip install -e . --no-deps --python .venv/bin/python
 
+      # Rules for a public repo: no absolute paths, no agent-directed prose,
+      # no unlinked documents under docs/ (MkDocs publishes those anyway).
+      - name: publication hygiene
+        run: .venv/bin/python scripts/check_public_hygiene.py
+
       - name: ruff check
         run: .venv/bin/ruff check boldcast/ tests/ scripts/ benchmarks/
 
