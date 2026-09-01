@@ -12,13 +12,18 @@
 # the original Day-4 venue but had no GPU availability on 2026-05-13;
 # mit_normal_gpu is the canonical Day-4 partition going forward.
 
+# Resolve the checkout without hardcoding it: BOLDCAST_REPO wins, then the
+# sbatch submission directory, then this script's own location.
+REPO="${BOLDCAST_REPO:-${SLURM_SUBMIT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}}"
+[ -f "$REPO/configs/demo.yaml" ] || { echo "not a boldcast checkout: $REPO" >&2; exit 1; }
+cd "$REPO"
+set -a; [ -f .env ] && . ./.env; set +a
+
 set +u
 source ~/.bashrc
-micromamba activate $BOLDCAST_ENV
+micromamba activate "${BOLDCAST_ENV:?set BOLDCAST_ENV in .env to the micromamba env prefix}"
 set -u
 
-REPO=$REPO
-cd "$REPO"
 mkdir -p logs results
 
 python -u scripts/day4_overfit.py \

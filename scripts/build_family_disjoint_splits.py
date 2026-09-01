@@ -22,7 +22,7 @@ Outputs:
 
 Usage::
 
-    export HCP_RESTRICTED_CSV=/orcd/data/.../Restricted_yibei_xxx.csv
+    export HCP_RESTRICTED_CSV=<path to the Restricted CSV, outside this repo>
     python scripts/build_family_disjoint_splits.py
 
     # or with explicit expanded-pool fallback:

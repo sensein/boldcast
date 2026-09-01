@@ -16,13 +16,18 @@
 # canonical Day-4 run lives in day4_overfit.sh; this script is preserved
 # for reproducibility, hence the original pi_satra partition.
 
+# Resolve the checkout without hardcoding it: BOLDCAST_REPO wins, then the
+# sbatch submission directory, then this script's own location.
+REPO="${BOLDCAST_REPO:-${SLURM_SUBMIT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}}"
+[ -f "$REPO/configs/demo.yaml" ] || { echo "not a boldcast checkout: $REPO" >&2; exit 1; }
+cd "$REPO"
+set -a; [ -f .env ] && . ./.env; set +a
+
 set +u
 source ~/.bashrc
-micromamba activate $BOLDCAST_ENV
+micromamba activate "${BOLDCAST_ENV:?set BOLDCAST_ENV in .env to the micromamba env prefix}"
 set -u
 
-REPO=$REPO
-cd "$REPO"
 mkdir -p logs results
 
 python -u scripts/day4_overfit.py \

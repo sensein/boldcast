@@ -24,7 +24,7 @@ neuroimaging contents into chat or version control.
 
 Usage
 -----
-    micromamba activate $BOLDCAST_ENV
+    micromamba activate "$BOLDCAST_ENV"
     python scripts/build_subject_lists.py --check-only
     python scripts/build_subject_lists.py --modality 3T   # or 7T
 """
@@ -41,7 +41,9 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
 
-DEFAULT_HCP_ROOT = Path("$HCP_ROOT")
+# The HCP1200 root is site-specific and points at DUA-bound data, so it is
+# supplied by the environment rather than committed here.
+DEFAULT_HCP_ROOT = os.environ.get("HCP_ROOT")
 SUBJECT_RE = re.compile(r"^\d{6}$")
 
 RUNS_3T: tuple[str, ...] = (
@@ -178,8 +180,9 @@ def parse_args() -> argparse.Namespace:
     p.add_argument(
         "--hcp-root",
         type=Path,
-        default=DEFAULT_HCP_ROOT,
-        help=f"HCP1200 root directory (default: {DEFAULT_HCP_ROOT}).",
+        default=Path(DEFAULT_HCP_ROOT) if DEFAULT_HCP_ROOT else None,
+        required=DEFAULT_HCP_ROOT is None,
+        help="HCP1200 root directory (defaults to $HCP_ROOT).",
     )
     p.add_argument(
         "--repo-root",

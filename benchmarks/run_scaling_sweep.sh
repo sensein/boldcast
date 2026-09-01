@@ -30,7 +30,7 @@ mkdir -p logs
 
 # Activate micromamba environment
 eval "$(micromamba shell hook --shell bash)"
-micromamba activate $BOLDCAST_ENV
+micromamba activate "${BOLDCAST_ENV:?set BOLDCAST_ENV in .env to the micromamba env prefix}"
 
 echo "============================================"
 echo "BOLDcast Multi-GPU Scaling Sweep"
