@@ -271,9 +271,10 @@ def main() -> int:
         "hcp_root": str(args.hcp_root),
         "family_disjoint": False,
         "family_disjoint_note": (
-            "Demo splits are random from open-access subjects only; family IDs "
-            "require WU-Minn HCP Restricted DUA. See docs/10_day_plan.md "
-            "Subject Lists section for the documented caveat."
+            "Splits from this script are random over open-access subjects "
+            "only; family IDs require the WU-Minn HCP Restricted release. "
+            "Use build_family_disjoint_splits.py for family-disjoint splits; "
+            "see docs/methods.md 'Demo data and splits'."
         ),
     }
 

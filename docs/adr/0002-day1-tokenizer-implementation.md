@@ -5,7 +5,7 @@
 
 ## Context
 
-Day 1 of the demo plan ([`docs/10_day_plan.md`](../10_day_plan.md)) calls
+Day 1 of the demo plan (internal, not published) calls
 for an atlas-free CIFTI tokenizer: load HCP `*_Atlas_MSMAll_hp2000_clean
 .dtseries.nii`, partition the cortical surface into 1,024 geodesic
 patches (per-hemisphere FPS, 512 + 512), and verify round-trip parity
@@ -194,7 +194,6 @@ companion. Claude never executes it.
 
 ## References
 
-- [`docs/10_day_plan.md`](../10_day_plan.md) §"Day 1 — CIFTI tokenizer"
 - [`docs/methods.md`](../methods.md) §"Atlas-Free CIFTI Tokenization"
 - [`boldcast/_upstream/README.md`](https://github.com/sensein/boldcast/blob/main/boldcast/_upstream/README.md)
 - `CLAUDE.md` §"HCP Data Use Agreement" (local-only; not distributed)

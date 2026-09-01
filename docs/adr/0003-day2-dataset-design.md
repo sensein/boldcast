@@ -14,7 +14,7 @@ patch-assignment cache. Day 2 wraps that in a per-subject-per-run
 caching dataloader and exposes a map-style PyTorch interface for Day 4
 (overfit) and Day 5 (DDP training).
 
-Several decisions are not specified by `docs/10_day_plan.md` and are
+Several decisions are not specified by the demo plan and are
 locked here.
 
 ## Decisions

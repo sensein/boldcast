@@ -270,10 +270,10 @@ task labels, which is a forward inference [Poldrack 2006].
 
 ## Demo Scope (10-Day Seed-Grant Result)
 
-This document specifies the full proposed system. The 10-day demo plan in
-[`docs/10_day_plan.md`](10_day_plan.md) exercises a strict subset to produce
-a single defensible headline result (subject fingerprinting on HCP 7T rsfMRI
-vs. a Schaefer-400 ROI matched-architecture baseline). The demo is therefore
+This document specifies the full proposed system. The demo exercises a
+strict subset of it to produce a single defensible headline result (subject
+fingerprinting on HCP 7T rsfMRI vs. a Schaefer-400 ROI matched-architecture
+baseline). The demo is therefore
 infrastructure validation (atlas-free tokenizer round-trip; multi-GPU Mamba
 training pipeline; frozen-backbone retrieval eval) rather than evidence of
 the foundation-model thesis itself; the seed grant funds the components
@@ -284,7 +284,7 @@ omitted below.
 | Tokenization | 1024 cortex + 768 subcortex/cerebellum (`P = 1,792`) | Cortex-only (`P = 1,024`) |
 | Datasets | HCP 3T rest + HCP 7T movie + CNeuroMod | HCP 7T rsfMRI only (4 of 8 REST runs available locally; alternating PE) |
 | Subjects | ~190 | 16 train + 8 held-out |
-| Family-disjoint splits | Enforced via `Restricted_*.csv` | Not enforced (open-access only; documented caveat) |
+| Family-disjoint splits | Enforced via `Restricted_*.csv` | Enforced (see below) |
 | Training phases | Phase 1 (brain-only) + Phase 2 (multimodal) | Phase 1 only |
 | Stimulus stream | Frozen CLIP + canonical HRF + learned FIR residual | Not present |
 | FiLM conditioning | Per-token FreeSurfer-derived structural features | Not present |
@@ -293,3 +293,39 @@ omitted below.
 | Backbone size | 6 layers @ `d_model=256` (default); 12 @ 512 (scaled) | 4 layers @ `d_model=128` (~1M params) |
 | Held-out evaluation | Subject fingerprinting + phenotype + 7-class task decoding | Subject fingerprinting only |
 | Baselines | Schaefer-400 + behavior-from-FC + volumetric MVPA | Schaefer-400 (matched-architecture) |
+
+### Demo data and splits
+
+Each subject contributes four HCP 7T resting-state runs —
+`rfMRI_REST1_7T_PA`, `rfMRI_REST2_7T_AP`, `rfMRI_REST3_7T_PA`,
+`rfMRI_REST4_7T_AP` — of roughly 900 TRs each at TR = 1.0 s, about 60
+minutes per subject. Windows are 256 TRs at stride 128, giving ~6 windows
+per run and ~576 across the 24 subjects (~384 train, ~192 held-out).
+
+Subjects are drawn from the pool on the local mount having all four runs.
+The 16 train and 8 held-out subjects are **family-disjoint**: HCP 7T shares
+subject IDs with S1200 and includes twin and sibling pairs, so splits that
+ignore family structure let shared genetic and shared-environment signal
+leak across the train/held-out boundary and inflate fingerprinting accuracy.
+Family IDs come from the WU-Minn HCP Restricted Data release (a separate
+agreement from open access), and the split is audited to zero family overlap;
+`configs/family_disjoint_audit.json` records the audit as counts only, never
+family IDs.
+
+**Phase-encoding asymmetry.** Only four of the eight REST runs are available
+on the local mount, and they carry one phase-encoding direction per scan
+(REST1 and REST3 are PA; REST2 and REST4 are AP). Phase-encoding direction
+affects local susceptibility distortion. This is unlikely to bias mean-pooled
+fingerprinting, since susceptibility artifacts are region-specific while
+fingerprinting reads out whole-cortex structure, but the asymmetry is a real
+limitation of the demo result. Recovering the remaining four runs would allow
+`data.runs` to cover all eight, with the windowing arithmetic updated to match.
+
+**Denoising.** The demo relies on the FIX-ICA cleanup already present in the
+`*_hp2000_clean.dtseries.nii` inputs and applies neither additional global
+signal regression (HCP MSMAll does not apply GSR by default) nor frame-wise
+motion scrubbing. Head motion is a known inflater of subject-fingerprinting
+accuracy [Siegel et al. 2017; Bijsterbosch et al. 2020], so per-subject mean
+framewise displacement should be reported alongside any fingerprinting result
+to let a reader judge motion-confound risk; ablating the denoising choice is
+deferred to the full project.

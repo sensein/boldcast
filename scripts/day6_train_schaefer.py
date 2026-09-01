@@ -6,7 +6,7 @@ Near-clone of ``scripts/day5_train_boldcast.py`` with:
   instead of :class:`boldcast.models.boldcast_demo.BOLDcastDemo` (P=1024).
 * Tokenization: Schaefer-400 parcellation instead of geodesic FPS
   patches.  All other hyperparameters identical (matched-architecture
-  comparison; see ``docs/10_day_plan.md`` Day 6).
+  comparison).
 
 NOTE: requires CUDA + mamba-ssm + real HCP dtseries access + the
 Schaefer dlabel at ``cfg.baseline.schaefer_dlabel``.  Run on an ORCD

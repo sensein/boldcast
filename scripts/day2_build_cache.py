@@ -7,7 +7,7 @@ For each (subject, run) in the train + heldout splits, force a single
 ``Dataset.__getitem__`` call so the per-(subject, run) tokenized cache is
 materialized on disk. Subsequent training reads from cache.
 
-Acceptance (per ``docs/10_day_plan.md`` Day 2):
+Acceptance criteria:
 * Wall time < 30 minutes on 1 ORCD node for 24 subjects × 4 runs.
 * No NaN in any cached tensor.
 * Train cardinality ≈ 384 windows; heldout ≈ 192.

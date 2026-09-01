@@ -12,7 +12,7 @@ instantiates BOLDcastDemo on cuda, runs one forward pass on
   * Wall-time of the forward pass
   * Peak CUDA memory during forward (training-mode)
 
-Acceptance (per docs/10_day_plan.md Day 3):
+Acceptance criteria:
   * <1 second wall-time on H200
   * <8 GB peak memory for forward+backward
 """

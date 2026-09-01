@@ -6,7 +6,6 @@ stimulus–brain latent state tracking from naturalistic fMRI.
 ## Quickstart
 
 - [Methods](methods.md) — architecture spec, training objectives, eval protocols
-- [10-day plan](10_day_plan.md) — demo deliverable plan
 
 ## Architecture Decision Records
 

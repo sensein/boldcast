@@ -21,7 +21,7 @@ this ADR locks them.
 ### D1. Multi-horizon head ships on Day 4, not Day 5
 
 ADR 0004 D1 explicitly defers the multi-horizon head from Day 3 to
-Day 4. The Day-4 plan text in `docs/10_day_plan.md` line 322
+Day 4. The Day-4 plan text
 ("Single-step forecasting only on day 4 … Multi-step is day 5")
 predates ADR 0004 and is stale. `configs/demo.yaml` already lists
 `forecasting_horizons: [1, 5]`. Day 4 builds and exercises the
@@ -145,5 +145,5 @@ about 2 hours of wallclock on a single H100.
   — meaningful coverage without a GPU runner.
 - **Negative:** The Day-4 overfit run still depends on Yibei to
   execute on a GPU compute node under the micromamba env (HCP DUA;
-  mamba-ssm). Plan-text in `docs/10_day_plan.md` line 322 is now
-  stale; correcting it is a docs follow-up, not a code blocker.
+  mamba-ssm). The corresponding plan text is now stale; correcting it
+  is a docs follow-up, not a code blocker.

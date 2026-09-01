@@ -1,4 +1,4 @@
-# BOLDcast 10-day demo config (see docs/10_day_plan.md).
+# BOLDcast 10-day demo config.
 # Single source of truth for all demo scripts. No CLI overrides except --seed.
 
 defaults:
@@ -31,7 +31,7 @@ data:
   # subjects_heldout_file: configs/subjects_heldout.txt
   # HCP 7T resting-state, 4 of 8 REST runs available locally (alternating PE,
   # one per REST scan). When the other 4 PEs are pulled from datalad, expand
-  # this list and update the windowing math in docs/10_day_plan.md.
+  # this list and update the windowing math to match.
   runs:
     - rfMRI_REST1_7T_PA
     - rfMRI_REST2_7T_AP

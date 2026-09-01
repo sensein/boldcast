@@ -27,7 +27,6 @@ theme:
 nav:
   - Home: index.md
   - Methods: methods.md
-  - 10-day plan: 10_day_plan.md
   - Architecture Decision Records:
     - Overview: adr/README.md
     - 0001 · Deterministic, not variational: adr/0001-deterministic-not-variational.md
