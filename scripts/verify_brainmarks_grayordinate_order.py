@@ -19,7 +19,8 @@ structure ordering** (CORTEX_LEFT first, CORTEX_RIGHT second, contiguous).
 This script asserts that against a real CIFTI header and emits the static
 ``cortex_index`` vector the wrapper will use.
 
-**DUA note (read before running).** Yibei runs this; Claude never does.
+**DUA note (read before running).** Requires access under the WU-Minn HCP
+Data Use Agreement.
 The script reads a CIFTI *header* (structure names, grayordinate offsets,
 mesh-vertex index arrays) and prints **only structural metadata** — names,
 counts, and index ranges. It NEVER prints, returns, or writes BOLD signal

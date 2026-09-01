@@ -1,4 +1,4 @@
-"""Minimal ``.env`` loader for Yibei-runs scripts.
+"""Minimal ``.env`` loader for the entry points under ``scripts/``.
 
 Pure-Python, zero-dependency: reads ``KEY=VALUE`` lines from a ``.env``
 file at the repo root, drops blank lines and ``#`` comments, sets the

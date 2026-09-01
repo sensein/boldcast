@@ -133,7 +133,7 @@ model initialization is bit-identical:
 
 ### D10. The `set_epoch` trap guard
 
-**Load-bearing correctness invariant.** The `_infinite_loader` MUST call
+**Correctness invariant.** The `_infinite_loader` MUST call
 `sampler.set_epoch(epoch)` between successive `iter(dataloader)` calls when using
 `DistributedSampler`. This is the only mechanism that guarantees rank-specific shuffle
 orders across epochs. Without it, all ranks see the same window order every epoch —
@@ -151,7 +151,7 @@ in `tests/test_trainer_ddp.py`).
   measurement. The silent-shuffle-freeze trap is explicitly guarded by name (D10).
   Tests for rank-awareness run on CPU via Gloo, keeping the test suite fast on
   login nodes.
-- **Negative:** Day-5 training depends on Yibei to execute on ORCD compute with
+- **Negative:** Day-5 training has to be executed on ORCD compute by someone with
   `torchrun` (HCP DUA; mamba-ssm). The Day-4 horizon-mismatch guard (ADR 0005
   lines 113–118) must remain byte-identical; any refactor that changes it breaks
   gradient flow silently. Validation is rank-0-only; if rank 0's held-out data

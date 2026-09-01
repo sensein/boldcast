@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Build family-disjoint train/heldout splits from HCP Restricted family IDs.
 
-Yibei-runs only. Claude never reads ``Restricted_*.csv`` (HCP DUA).
+Reads a ``Restricted_*.csv`` from the WU-Minn HCP Restricted release, so it
+requires access under that agreement and must be run by a holder of it.
 
 Reads the current 24-subject pool (``configs/subjects_train.txt`` +
 ``configs/subjects_heldout.txt``), looks up ``Family_ID`` for each

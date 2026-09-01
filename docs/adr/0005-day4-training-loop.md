@@ -143,7 +143,7 @@ about 2 hours of wallclock on a single H100.
   not a synthetic detour. CPU dev gates (`.venv/bin/pytest -m "not
   gpu"`) cover loss, optim, utils, and a 0-layer Trainer end-to-end
   — meaningful coverage without a GPU runner.
-- **Negative:** The Day-4 overfit run still depends on Yibei to
-  execute on a GPU compute node under the micromamba env (HCP DUA;
-  mamba-ssm). The corresponding plan text is now stale; correcting it
+- **Negative:** The Day-4 overfit run still has to be executed on a GPU
+  compute node under the micromamba environment, by someone with DUA
+  access (HCP DUA; mamba-ssm). The corresponding plan text is now stale; correcting it
   is a docs follow-up, not a code blocker.

@@ -15,9 +15,10 @@ Run twice:
 Then compute efficiency = w2.tokens_per_second / (2 * w1.tokens_per_second).
 Acceptance: >= 0.70.
 
-NOTE: requires CUDA + mamba-ssm. Run on an ORCD GPU compute node under the
-micromamba env. Claude does not execute this script (no GPU at login node; uv
-env lacks mamba-ssm; HCP DUA is held by Yibei, not Claude).
+Requires CUDA and mamba-ssm, and reads HCP data held under the WU-Minn HCP
+Data Use Agreement. Runs on a GPU compute node under the micromamba
+environment; a login node has no GPU and the uv dev environment omits
+mamba-ssm.
 """
 
 from __future__ import annotations

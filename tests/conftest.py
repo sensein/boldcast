@@ -1,6 +1,7 @@
 """Shared synthetic fixtures for ``boldcast/_upstream/`` tests.
 
-Synthetic-only by design: Claude does not load HCP data files (DUA).
+Synthetic by design: these fixtures never read HCP data files, which are
+bound by the WU-Minn HCP Data Use Agreement.
 """
 
 from __future__ import annotations

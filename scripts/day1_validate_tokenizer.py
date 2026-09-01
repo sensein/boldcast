@@ -1,7 +1,7 @@
 """Day-1 tokenizer validation on real HCP data.
 
-NOTE: This script LOADS HCP data from $HCP_ROOT — it must be run by the DUA
-holder (Yibei), never by Claude. See CLAUDE.md "HCP Data Use Agreement".
+Reads HCP data from $HCP_ROOT, so it requires access under the WU-Minn
+HCP Data Use Agreement and must be run by a holder of that agreement.
 
 Reads the demo config, picks the requested subject + run, builds (or loads
 from cache) the cortical patch assignment, runs the Patcher on the

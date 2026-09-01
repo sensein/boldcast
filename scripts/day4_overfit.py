@@ -1,9 +1,9 @@
 """Day-4 BOLDcastDemo overfit sanity check.
 
-NOTE: requires CUDA + mamba-ssm + real HCP dtseries access. Run on an
-ORCD GPU compute node under the micromamba env. Claude does not execute
-this script (no GPU at the login node; uv env lacks mamba-ssm; HCP DUA
-is held by Yibei, not Claude).
+Requires CUDA, mamba-ssm, and access to real HCP dtseries under the
+WU-Minn HCP Data Use Agreement. Runs on a GPU compute node under the
+micromamba environment; a login node has no GPU and the uv dev
+environment omits mamba-ssm.
 
 Builds a 4-window dataset (4 train subjects x 1 run x 1 window each),
 trains BOLDcastDemo for up to ``--max-steps`` iterations on that batch,

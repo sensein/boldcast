@@ -9,7 +9,7 @@ description = "Atlas-free, surface-based hybrid-Mamba foundation model for joint
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.10"
-authors = [{ name = "Yibei" }]
+authors = [{ name = "Yibei Chen" }]
 keywords = ["fMRI", "Mamba", "neuroimaging", "CIFTI", "foundation model", "brain decoding"]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -74,8 +74,8 @@ docs = [
 ]
 
 [project.urls]
-Repository = "https://github.com/yibeichan/boldcast"
-"Bug Tracker" = "https://github.com/yibeichan/boldcast/issues"
+Repository = "https://github.com/sensein/boldcast"
+"Bug Tracker" = "https://github.com/sensein/boldcast/issues"
 
 # ---------------------------------------------------------------------------
 # Tool configurations

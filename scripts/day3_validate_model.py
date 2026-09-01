@@ -1,8 +1,8 @@
 """Day-3 BOLDcastDemo validation on a CUDA device.
 
-NOTE: this script depends on mamba-ssm and a CUDA GPU. Run on an ORCD
-GPU compute node under the micromamba env. Claude does not execute it
-(no GPU at the login node; uv env lacks mamba-ssm).
+Requires mamba-ssm and a CUDA GPU, so it runs on a GPU compute node under
+the micromamba environment. It cannot run on a login node: there is no GPU
+there and the uv dev environment omits mamba-ssm.
 
 Loads the demo config, builds patch + kNN caches (or uses existing),
 instantiates BOLDcastDemo on cuda, runs one forward pass on

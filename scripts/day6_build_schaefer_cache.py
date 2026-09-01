@@ -1,7 +1,7 @@
 """Day-6 Schaefer cache builder for the demo's HCP 7T REST runs.
 
-NOTE: LOADS HCP data from $HCP_ROOT — DUA holder (Yibei) runs this,
-not Claude. See CLAUDE.md "HCP Data Use Agreement".
+Reads HCP data from $HCP_ROOT, so it requires access under the WU-Minn
+HCP Data Use Agreement and must be run by a holder of that agreement.
 
 For each (subject, run) in train + heldout splits, force a single
 ``Dataset.__getitem__`` call so the per-(subject, run) Schaefer-

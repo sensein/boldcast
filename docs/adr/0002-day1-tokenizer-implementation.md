@@ -25,11 +25,11 @@ The prose spec leaves three implementation-level choices unresolved:
    FPS as a runtime fallback "if geodesic FPS is slow". A third option
    (heat-method geodesics via `potpourri3d` or `pygeodesic`) was raised
    but not committed.
-3. **Test fixtures under HCP DUA.** Yibei holds the WU-Minn HCP Data Use
-   Agreement; Claude does not. Per the project's `CLAUDE.md`,
-   Claude must never read `.dtseries.nii`, `.gii`, or
-   `Restricted_*.csv` files. Tests still need to exercise CIFTI I/O,
-   FPS, and round-trip end-to-end.
+3. **Test fixtures under HCP DUA.** `.dtseries.nii`, `.gii`, and
+   `Restricted_*.csv` files are bound by the WU-Minn HCP Data Use
+   Agreement and are readable only by a holder of it, so the test suite
+   cannot depend on them. Tests still need to exercise CIFTI I/O, FPS,
+   and round-trip end-to-end.
 
 Upstream context: the `_upstream/README.md` lists `cifti_io.py →
 nobrainer.io.cifti` and `geodesic_patcher.py → nobrainer.layers` as
@@ -59,7 +59,7 @@ re-export and add project glue (caching, config-aware paths):
 | `tests/_upstream/test_cifti_io.py` | Isolated unit tests for `_upstream/cifti_io.py`. Synthetic CIFTI fixtures. |
 | `tests/_upstream/test_geodesic_patcher.py` | Isolated unit tests for `_upstream/geodesic_patcher.py`. Synthetic icosphere meshes. |
 | `tests/test_round_trip.py` | Day-1 acceptance test: synthetic dtseries → patcher → de-patch → patcher reproduces patch means to floating-point precision. |
-| `scripts/day1_validate_tokenizer.py` | Real-data validation. Loads HCP dtseries; **Yibei runs**, Claude never executes. |
+| `scripts/day1_validate_tokenizer.py` | Real-data validation. Loads HCP dtseries; requires DUA access, so it is not run in CI. |
 
 This satisfies both the Day 1 plan's path expectations (via the
 project-side re-exports) and the `_upstream/` discipline (via the
@@ -118,8 +118,8 @@ build at `32k_fs_LR`, scipy's C Dijkstra is enough.
 
 ### 3. Test fixtures: synthetic, programmatic, no HCP
 
-Tests construct fixtures in-process; no HCP file is ever read by
-Claude or by automated CI:
+Tests construct fixtures in-process; no HCP file is read by the test
+suite or by CI:
 
 - `tests/_upstream/conftest.py` provides:
   - `synthetic_dtseries`: a tiny `nibabel.cifti2.Cifti2Image` built
@@ -149,10 +149,10 @@ Claude or by automated CI:
   to floating-point precision.
 
 The HCP-data validation lives in `scripts/day1_validate_tokenizer
-.py`. Yibei runs that script on a real subject; the script writes
-metrics (mean / std vertices per patch, ~900-TR runtime,
-round-trip residual) to `figures/day1_patches.png` and a JSON
-companion. Claude never executes it.
+.py`, run by a DUA holder on a real subject. It writes metrics
+(mean / std vertices per patch, ~900-TR runtime, round-trip
+residual) to `figures/day1_patches.png` and a JSON companion. It is
+never run in CI.
 
 ## Consequences
 
@@ -196,6 +196,5 @@ companion. Claude never executes it.
 
 - [`docs/methods.md`](../methods.md) §"Atlas-Free CIFTI Tokenization"
 - [`boldcast/_upstream/README.md`](https://github.com/sensein/boldcast/blob/main/boldcast/_upstream/README.md)
-- `CLAUDE.md` §"HCP Data Use Agreement" (local-only; not distributed)
 - Crane, K., Weischedel, C., Wardetzky, M. (2013). Geodesics in heat.
   *ACM Trans. Graph.* 32(5).

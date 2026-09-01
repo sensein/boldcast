@@ -236,8 +236,8 @@ def test_from_config_heldout_split_uses_disjoint_subject_ids(
     synthetic_hcp_layout: tuple[Path, list[str], list[str]], tmp_path: Path
 ) -> None:
     """Heldout split must offset subject_ids by len(train_subjects) so the
-    model never sees the same int across splits. This is operationally
-    load-bearing — Day-7 fingerprinting silently corrupts on ID collision."""
+    model never sees the same int across splits: Day-7 fingerprinting
+    silently corrupts on ID collision."""
     import yaml
 
     hcp_root, subjects, runs = synthetic_hcp_layout

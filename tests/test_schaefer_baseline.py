@@ -3,7 +3,7 @@
 Tests the pure ``extract_cortex_labels_from_dlabel`` function with
 synthetic CIFTI brain-model dicts — no real Schaefer dlabel required.
 The CIFTI loader wrapper (``load_schaefer_cortex_assignment``) is
-covered by Day-6 hardware validation when Yibei runs the script.
+covered by Day-6 hardware validation when the script is run on a compute node.
 """
 
 from __future__ import annotations

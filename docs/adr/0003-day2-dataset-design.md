@@ -82,7 +82,7 @@ into `__init__`.
 ## Consequences
 
 - **Positive:** Tests run on synthetic data without touching the
-  patcher cache. Real-data validation (Yibei) is a single
+  patcher cache. Real-data validation, which needs DUA access, is a single
   `from_config` call. Cache invalidation surface is explicit.
 - **Negative:** D1 introduces a small per-subject geometry bias.
   Mitigated by tracking Conte69 template-mesh as a follow-up.

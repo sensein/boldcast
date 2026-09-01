@@ -90,5 +90,5 @@ every test that imports `mamba_ssm` with `@pytest.mark.gpu`. Default
   out forecasting underperforms, those are obvious recovery levers
   but require revisiting this ADR. The `@pytest.mark.gpu` marker
   means CI on the login node provides only partial coverage for the
-  model layer; the GPU test path is run-by-Yibei rather than
+  model layer; the GPU test path runs on a compute node rather than
   CI-enforced.

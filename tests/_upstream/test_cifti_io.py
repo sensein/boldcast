@@ -1,6 +1,7 @@
 """Tests for ``boldcast/_upstream/cifti_io.py``.
 
-Synthetic-only — Claude does not load HCP data files (DUA).
+Synthetic fixtures only: these tests never read HCP data files, which are
+bound by the WU-Minn HCP Data Use Agreement.
 """
 
 from __future__ import annotations
