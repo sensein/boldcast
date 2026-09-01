@@ -31,14 +31,7 @@ uv pip install \
 uv pip install -e . --no-deps --python .venv/bin/python
 ```
 
-The dep list above is the Day 1 + Day 2 + downstream-eval surface;
-`mamba-ssm` and `causal-conv1d` are intentionally omitted (Day 3+
-training uses the micromamba env instead).
-
 ### Daily dev gates
-
-These are exactly what `.github/workflows/ci.yml` runs, in the same
-order, so a clean local run means a green CI run:
 
 ```bash
 .venv/bin/ruff check boldcast/ tests/ scripts/ benchmarks/
@@ -69,10 +62,6 @@ in uv).
 micromamba activate $BOLDCAST_ENV
 python scripts/day5_train_boldcast.py --config configs/demo.yaml
 ```
-
-The micromamba env at `$BOLDCAST_ENV`
-is the authoritative runtime on ORCD; `pyproject.toml` `dependencies`
-are kept in sync with `environment.yml`.
 
 ## License
 
