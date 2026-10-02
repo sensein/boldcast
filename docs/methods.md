@@ -23,9 +23,24 @@ Vidaurre et al. 2017].
 
 **(3) Dynamic brain–stimulus alignment** via frozen high-rate stimulus features
 (CLIP ViT-L/14) bridged to slow BOLD signals through a hemodynamic alignment
-module. This generalizes prior static brain–stimulus alignment work
+module, extending brain–stimulus alignment beyond the static-image setting
 [MindEye2, Scotti et al. 2024; BrainCLIP, Liu et al.] to dynamic naturalistic
-viewing without requiring per-subject decoder heads.
+viewing.
+
+Dynamic stimulus–brain modelling is now an active area, and we state our
+position within it rather than claiming the setting is unoccupied. Stimulus-to-
+brain encoding at scale is addressed by trimodal encoders [TRIBE, d'Ascoli et
+al. 2026] and by adaptive speech-response models [RABBiT, Moussa & Toneva
+2026]; stimulus-conditioned forecasting of brain state is addressed by latent
+world models [NeuroWorld 2026]; and conditional generation of 4D fMRI from
+structural priors is addressed by diffusion-based models [BrainWorld, Xia et
+al. 2026]. Relative to that work, this model is distinguished by the
+conjunction of four choices rather than by any one of them: a grayordinate,
+atlas-free representation rather than ROI parcellation; a linear-time backbone
+rather than attention or diffusion; forecasting with bidirectional
+brain–stimulus retrieval rather than one-directional encoding; and evaluation
+on unseen subjects and unseen datasets rather than held-out runs from cohorts
+seen in training.
 
 The model is trained in two phases: (i) brain-only forecasting on HCP 3T
 resting-state and 7T movie-watching data, (ii) multimodal forecasting plus
