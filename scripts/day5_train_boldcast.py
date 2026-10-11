@@ -1,7 +1,7 @@
 """Day-5 BOLDcast DDP training entry point.
 
 NOTE: requires CUDA + mamba-ssm + real HCP dtseries access. Run on an
-ORCD GPU compute node under the micromamba env via:
+GPU compute node (AICR b200-batch) via:
     torchrun --standalone --nproc-per-node=2 --nnodes=1 \\
         scripts/day5_train_boldcast.py --config configs/demo.yaml \\
         --out-dir results/day5_train

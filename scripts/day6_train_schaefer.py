@@ -9,8 +9,8 @@ Near-clone of ``scripts/day5_train_boldcast.py`` with:
   comparison).
 
 NOTE: requires CUDA + mamba-ssm + real HCP dtseries access + the
-Schaefer dlabel at ``cfg.baseline.schaefer_dlabel``.  Run on an ORCD
-GPU compute node under the micromamba env via:
+Schaefer dlabel at ``cfg.baseline.schaefer_dlabel``.  Run on a
+GPU compute node (AICR b200-batch) via:
 
     sbatch scripts/day6_train_schaefer.sh
 

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-#SBATCH --partition=mit_normal_gpu
-#SBATCH --gres=gpu:h200:2
+#SBATCH --partition=b200-batch
+#SBATCH --account=all-sails_mit
+#SBATCH --gres=gpu:2
 #SBATCH --cpus-per-task=16
 #SBATCH --mem=128G
 #SBATCH --time=06:00:00
@@ -15,10 +16,7 @@ REPO="${BOLDCAST_REPO:-${SLURM_SUBMIT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/
 cd "$REPO"
 set -a; [ -f .env ] && . ./.env; set +a
 
-set +u
-source ~/.bashrc
-micromamba activate "${BOLDCAST_ENV:?set BOLDCAST_ENV in .env to the micromamba env prefix}"
-set -u
+source scripts/_activate_env.sh
 
 mkdir -p logs results
 

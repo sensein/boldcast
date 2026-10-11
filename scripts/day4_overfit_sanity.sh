@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-#SBATCH --partition=pi_satra
+#SBATCH --partition=b200-batch
+#SBATCH --account=all-sails_mit
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=64G
@@ -14,7 +15,8 @@
 # Historical: this script reproduces the 2026-05-13 sanity-check run
 # (job 13888490) that informed ADR 0005 D8. After the spec revision the
 # canonical Day-4 run lives in day4_overfit.sh; this script is preserved
-# for reproducibility, hence the original pi_satra partition.
+# for reproducibility. The original run was on ORCD Engaging (pi_satra);
+# it now targets AICR like the other wrappers.
 
 # Resolve the checkout without hardcoding it: BOLDCAST_REPO wins, then the
 # sbatch submission directory, then this script's own location.
@@ -23,10 +25,7 @@ REPO="${BOLDCAST_REPO:-${SLURM_SUBMIT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/
 cd "$REPO"
 set -a; [ -f .env ] && . ./.env; set +a
 
-set +u
-source ~/.bashrc
-micromamba activate "${BOLDCAST_ENV:?set BOLDCAST_ENV in .env to the micromamba env prefix}"
-set -u
+source scripts/_activate_env.sh
 
 mkdir -p logs results
 

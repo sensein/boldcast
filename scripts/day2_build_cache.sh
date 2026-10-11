@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-#SBATCH --partition=mit_normal
+#SBATCH --partition=cpu
+#SBATCH --account=all-sails_mit
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=32G
 #SBATCH --time=01:00:00
@@ -14,10 +15,7 @@ REPO="${BOLDCAST_REPO:-${SLURM_SUBMIT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/
 cd "$REPO"
 set -a; [ -f .env ] && . ./.env; set +a
 
-set +u
-source ~/.bashrc
-micromamba activate "${BOLDCAST_ENV:?set BOLDCAST_ENV in .env to the micromamba env prefix}"
-set -u
+source scripts/_activate_env.sh
 
 mkdir -p logs
 

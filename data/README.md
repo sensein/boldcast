@@ -13,7 +13,7 @@ The contents are gitignored — only this file is tracked.
 | File | Location | Referenced via |
 |------|----------|----------------|
 | HCP Restricted family-ID table | outside the repo, mode `600` under a `700` directory | `$HCP_RESTRICTED_CSV` in `.env` |
-| HCP S1200 imaging data | on the ORCD data filesystem | `$HCP_ROOT` in `.env` |
+| HCP S1200 imaging data | on the cluster data filesystem (AICR or ORCD) | `$HCP_ROOT` in `.env` |
 
 Both are consumed through environment variables set in the gitignored
 `.env` (loaded by `boldcast.utils.env.load_repo_dotenv`), never through a

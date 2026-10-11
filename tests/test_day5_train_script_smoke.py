@@ -91,8 +91,9 @@ def test_day5_sh_script_is_valid_bash() -> None:
     content = sh.read_text()
     # Required SBATCH directives
     for directive in [
-        "--partition=mit_normal_gpu",
-        "--gres=gpu:h200:2",
+        "--partition=b200-batch",
+        "--account=all-sails_mit",
+        "--gres=gpu:2",
         "--cpus-per-task=16",
         "--mem=128G",
         "--time=06:00:00",
@@ -102,6 +103,5 @@ def test_day5_sh_script_is_valid_bash() -> None:
     assert "torchrun" in content
     assert "--nproc-per-node=2" in content
     assert "scripts/day5_train_boldcast.py" in content
-    assert "micromamba activate" in content
-    assert "set +u" in content and "set -u" in content
+    assert "source scripts/_activate_env.sh" in content
     assert "PYTHONUNBUFFERED" in content

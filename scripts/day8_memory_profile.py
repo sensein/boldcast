@@ -15,9 +15,9 @@ The K99 prelim claim is the *linear-in-T scaling shape*, not the
 specific absolute Table-1 numbers — those are reported as cross-
 reference.
 
-NOTE: requires CUDA + mamba-ssm.  Run on an ORCD GPU compute node:
+NOTE: requires CUDA + mamba-ssm.  Run on a GPU compute node (AICR b200-batch):
 
-    srun -p mit_normal_gpu --gres=gpu:h200:1 -t 00:30:00 \\
+    srun -p b200-batch -A all-sails_mit --gres=gpu:1 -t 00:30:00 \\
         python scripts/day8_memory_profile.py \\
         --out-json results/day8_memory.json \\
         --out-figure figures/day8_memory_scaling.png

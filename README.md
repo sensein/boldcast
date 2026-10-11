@@ -59,7 +59,7 @@ in uv).
 ### Training & GPU runtime (Day 5+)
 
 ```bash
-micromamba activate "$BOLDCAST_ENV"   # env prefix, set in .env
+source "$BOLDCAST_ENV/bin/activate"   # env prefix, set in .env (micromamba env: micromamba activate)
 python scripts/day5_train_boldcast.py --config configs/demo.yaml
 ```
 

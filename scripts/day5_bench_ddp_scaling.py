@@ -2,12 +2,12 @@
 
 Run twice:
   # Single-GPU baseline (T1):
-  srun -p mit_normal_gpu --gres=gpu:h200:1 -t 00:30:00 \\
+  srun -p b200-batch -A all-sails_mit --gres=gpu:1 -t 00:30:00 \\
       python scripts/day5_bench_ddp_scaling.py \\
       --out-json results/bench_w1.json
 
   # Two-GPU DDP (T2):
-  srun -p mit_normal_gpu --gres=gpu:h200:2 -t 00:30:00 \\
+  srun -p b200-batch -A all-sails_mit --gres=gpu:2 -t 00:30:00 \\
       torchrun --standalone --nproc-per-node=2 \\
       scripts/day5_bench_ddp_scaling.py \\
       --out-json results/bench_w2.json

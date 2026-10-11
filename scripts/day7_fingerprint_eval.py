@@ -7,9 +7,9 @@ and a paired McNemar test, sweeps embedding window length, and
 writes three figures + a metrics JSON.
 
 NOTE: requires CUDA + mamba-ssm + real HCP dtseries access.  Run on
-an ORCD GPU compute node under the micromamba env:
+a GPU compute node (AICR b200-batch):
 
-    srun -p mit_normal_gpu --gres=gpu:h200:1 -t 02:00:00 \\
+    srun -p b200-batch -A all-sails_mit --gres=gpu:1 -t 02:00:00 \\
         python scripts/day7_fingerprint_eval.py \\
         --config configs/demo.yaml \\
         --boldcast-ckpt results/day5_train/ckpt_final.pt \\
