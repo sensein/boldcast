@@ -1,0 +1,23 @@
+# BOLDcast-Demo architecture (10-day plan, ~2M params)
+# Cortex-only, smaller hidden dim, fewer layers.
+name: demo
+
+d_in: 1            # mean BOLD per patch (scalar)
+d_model: 128
+n_layers: 4
+n_heads: 8         # for kNN attention
+
+# Mamba block hyperparameters
+mamba:
+  d_state: 16
+  d_conv: 4
+  expand: 2
+
+# Spatial mixing
+spatial:
+  type: knn_attention
+  k: 8
+
+# Tokenization (must match data.tokenize.*)
+n_patches_cortex: 1024
+n_patches_subcortex: 0   # demo is cortex-only

@@ -1,0 +1,17 @@
+{
+  "family_overlap_count": 0,
+  "n_heldout": 8,
+  "n_heldout_families": 7,
+  "n_subjects_missing_from_csv": 0,
+  "n_train": 16,
+  "n_train_families": 15,
+  "n_unused_families": 0,
+  "overflow_heldout": false,
+  "overflow_train": false,
+  "pool_expanded": false,
+  "pool_size_used": 24,
+  "seed": 0,
+  "subjects_missing_from_csv": [],
+  "target_heldout": 8,
+  "target_train": 16
+}
